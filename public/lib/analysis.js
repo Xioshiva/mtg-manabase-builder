@@ -54,7 +54,9 @@ function landRows(cards) {
 // mode: 'analyze' keeps the deck's lands as the starting point;
 // 'build' throws the lands away and starts from basics at the recommended count.
 // candidateCards: extra Scryfall land cards the optimizer may use.
-export function runAnalysis({ model, mode = 'analyze', candidateCards = [], games = 4000, play = 'both', optimize = true, landCount: landOverride, onProgress = () => {} }) {
+// keepUtility: in 'analyze' mode, lands that do more than make mana (creature lands,
+// card draw, graveyard hate, ...) stay as they are, since the simulator can't value that.
+export function runAnalysis({ model, mode = 'analyze', candidateCards = [], games = 4000, play = 'both', optimize = true, keepUtility = true, landCount: landOverride, onProgress = () => {} }) {
   const format = model.format;
   let cards = model.cards.map((d) => ({ ...d }));
   const colors = deckColors(cards);
@@ -112,6 +114,11 @@ export function runAnalysis({ model, mode = 'analyze', candidateCards = [], game
     }
   }
 
+  const kept = [];
+  if (keepUtility && mode !== 'build') {
+    for (const d of cards) if (d.land && d.land.utility && d.count > 0) { d.locked = true; kept.push(d.name); }
+  }
+
   let suggested = null;
   if (optimize) {
     onProgress({ stage: 'Searching for a better manabase' });
@@ -121,7 +128,7 @@ export function runAnalysis({ model, mode = 'analyze', candidateCards = [], game
     });
     cards = result.cards;
     onProgress({ stage: 'Checking the suggested manabase' });
-    suggested = { lands: landRows(cards), sources: countSources(cards), sim: simulate({ cards, format }, { games, play }), history: result.history };
+    suggested = { lands: landRows(cards), sources: countSources(cards), sim: simulate({ cards, format }, { games, play }), history: result.history, kept };
   }
 
   onProgress({ stage: 'Comparing land counts' });

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Command line version: node cli.js deck.txt|moxfield-url|mtgtop8-url [--format standard] [--mode analyze|build]
-//   [--games 5000] [--play both|play|draw] [--lands N] [--no-optimize] [--cards cards.json]
+//   [--games 5000] [--play both|play|draw] [--lands N] [--no-optimize] [--swap-utility] [--cards cards.json]
 // --cards reads Scryfall card JSON from a file instead of the network (lands in it that
 // aren't in the deck are offered to the optimizer).
 import { readFileSync } from 'node:fs';
@@ -45,7 +45,7 @@ if (optimize && !cardFile) {
   }
 }
 const r = runAnalysis({
-  model: built.model, mode: opt('--mode', 'analyze'), candidateCards, optimize,
+  model: built.model, mode: opt('--mode', 'analyze'), candidateCards, optimize, keepUtility: !args.includes('--swap-utility'),
   games: Number(opt('--games', 10000)), play: opt('--play', 'both'), landCount: Number(opt('--lands', 0)) || undefined,
   onProgress: (p) => process.stderr.write(`\r${p.stage}${p.iter ? ` (step ${p.iter})` : ''}…          `),
 });
@@ -67,6 +67,7 @@ const show = (title, x) => {
 };
 show('Your manabase', r.current);
 show('Suggested manabase', r.suggested);
+if (r.suggested?.kept.length) console.log(`  kept as they are (they do more than make mana; --swap-utility lets the search replace them): ${r.suggested.kept.join(', ')}`);
 const main = r.suggested || r.current;
 console.log(`\n${main.sim.games} games per manabase; ± is the 95% margin of error.`);
 console.log('\nOn-curve castability (when held on its turn):');

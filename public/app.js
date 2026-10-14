@@ -139,6 +139,7 @@ function render(r) {
       ${sug ? `<div><h3>Suggested (${sug.lands.reduce((a, l) => a + l.count, 0)} lands)</h3>${landTable(sug.lands)}
         <h3>Copy into your list</h3><div class="landlist" id="landlist">${sug.lands.map((l) => `${l.count} ${esc(l.name.split(' // ')[0])}`).join('\n')}</div>
         ${sug.history.length ? `<p class="muted">Changes found by the search: ${groupSwaps(sug.history)}</p>` : '<p class="muted">The search found no swap that clearly helped.</p>'}
+        ${sug.kept && sug.kept.length ? `<p class="muted">Kept as they are because they do more than make mana: ${sug.kept.map(esc).join(', ')}.</p>` : ''}
       </div>` : ''}
     </div></section>`);
 
@@ -219,7 +220,7 @@ async function run() {
     worker.postMessage({
       parsed, cards: [...map], formatId: format.id, mode: $('mode').value, candidateCards,
       games: Number($('games').value), play: $('play').value,
-      landCount: Number($('landCount').value) || undefined, optimize: $('optimize').checked,
+      landCount: Number($('landCount').value) || undefined, optimize: $('optimize').checked, keepUtility: $('keepUtility').checked,
     });
   } catch (err) {
     setStatus('Error: ' + err.message);

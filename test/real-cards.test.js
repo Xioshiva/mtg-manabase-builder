@@ -6,7 +6,7 @@ import { normalizeCard, basicLandDef, landSummary } from '../public/lib/cards.js
 import { COLOR_BITS as C, ANY_COLOR } from '../public/lib/mana.js';
 import { simulate } from '../public/lib/sim.js';
 import { parseDecklist, cardKey, indexCards } from '../public/lib/decklist.js';
-import { buildModel } from '../public/lib/analysis.js';
+import { buildModel, runAnalysis } from '../public/lib/analysis.js';
 import { getFormat } from '../public/lib/formats.js';
 import { spell } from './helpers.js';
 
@@ -188,4 +188,20 @@ test('third-pass fixes: rummage, play-this-turn, discard-then-draw, typed digs, 
   const noJace = simulate(deck(spell('Not Jace', '{2}{U}', 3, 16, { type: 'Legendary Planeswalker — Kaito' })), { games: 2000, seed: 3 });
   assert.ok(jace.spells.find((x) => x.name === 'Opt-ish').onCurve > 0.5);
   assert.equal(noJace.spells.find((x) => x.name === 'Opt-ish').onCurve, 0);
+});
+
+test('lands that do more than make mana are kept by the search', () => {
+  const utility = (n) => real(n).land.utility;
+  for (const n of ['Restless Anchorage', 'Escape Tunnel', 'Fountainport', "Theorist's Sanctum"]) assert.equal(utility(n), true, n);
+  for (const n of ['Watery Grave', 'Fabled Passage', 'Starting Town', 'Cavern of Souls', 'Multiversal Passage', 'Floodfarm Verge', 'Hidden Lair']) assert.equal(utility(n), false, n);
+  const model = {
+    cards: [real('Restless Anchorage', 4), basicLandDef('W', 10), basicLandDef('U', 10), spell('Two', '{W}{U}', 2, 20), spell('One', '{U}', 1, 16, { type: 'Instant' })],
+    format: standard,
+  };
+  const kept = runAnalysis({ model, games: 400 });
+  assert.deepEqual(kept.suggested.kept, ['Restless Anchorage']);
+  assert.equal(kept.suggested.lands.find((l) => l.name === 'Restless Anchorage').count, 4);
+  const swapped = runAnalysis({ model, games: 400, keepUtility: false });
+  assert.deepEqual(swapped.suggested.kept, []);
+  assert.ok(!swapped.suggested.lands.some((l) => l.name === 'Restless Anchorage' && l.count === 4)); // a tapped dual loses to basics here
 });

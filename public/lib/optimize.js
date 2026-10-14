@@ -45,7 +45,7 @@ export function optimizeLands(model, opts = {}) {
   const cards = cloneCards(model.cards);
   const flex = new Set();
   cards.forEach((d, i) => { if (d.land && !d.locked && (d.land.isBasic || d.count > 0)) flex.add(i); });
-  for (const i of pickCandidates(cards, deckColors, opts.maxCandidates ?? 10)) flex.add(i);
+  for (const i of pickCandidates(cards, deckColors, opts.maxCandidates ?? 10)) if (!cards[i].locked) flex.add(i);
   const flexList = [...flex];
   const cap = (i) => (cards[i].land.isBasic ? Infinity : maxCopies);
   // Moves are screened on one set of shuffles and confirmed on another, so a move

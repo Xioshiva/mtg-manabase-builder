@@ -77,6 +77,17 @@ export function parseManaAbilities(text) {
   return out;
 }
 
+// Lines of land text the simulator models: mana abilities, entering tapped, fetching,
+// surveil on entering, and the choices some lands make as they enter.
+function isManaLine(l) {
+  return /^\{t\}(, pay \d+ life)?: add\b/.test(l)
+    || /^\{t\}, (?:pay \d+ life, )?sacrifice [^:]+: search your library for an? basic/.test(l)
+    || /enters( the battlefield)? tapped/.test(l)
+    || /^as [^,]+ enters, (?:choose a (?:color|basic land type|creature type)|you may behold)/.test(l)
+    || /^this land is the chosen type\.?$/.test(l)
+    || /^when [^,]+ enters, surveil \d+\.?$/.test(l);
+}
+
 export function parseLand(face, producedFallback) {
   const typeLine = face.type_line || '';
   const types = subtypes(typeLine);
@@ -94,6 +105,7 @@ export function parseLand(face, producedFallback) {
     fetch: null,
     surveil: 0,
     shockLife: 0, // life paid to have it enter untapped
+    utility: false, // does something besides making mana (creature land, card draw, ...)
     notes: [],
   };
   const text = stripReminder(face.oracle_text);
@@ -157,6 +169,7 @@ export function parseLand(face, producedFallback) {
   }
   const surveil = lower.match(/when [^.]*enters[^.]*, surveil (\d+)/);
   if (surveil) land.surveil = Number(surveil[1]);
+  land.utility = lower.split('\n').some((l) => l.trim() && !isManaLine(l.trim()));
   return land;
 }
 

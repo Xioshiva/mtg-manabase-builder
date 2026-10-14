@@ -41,4 +41,5 @@ for (const file of readdirSync(join(root, 'decks')).filter((f) => f.endsWith('.t
   if (r.drawSpells.length) console.log('  draw: ' + r.drawSpells.map((d) => `${d.name} [${d.effect}]`).join('; '));
   for (const n of new Set(r.notes)) console.log('  note: ' + n);
   if (r.suggested) console.log('  suggested: ' + r.suggested.lands.map((l) => `${l.count} ${l.name}`).join(', ') + ` → on curve ${pct(r.suggested.sim.castOnCurve)}`);
+  if (r.suggested?.kept.length) console.log('  kept (more than mana): ' + r.suggested.kept.join(', '));
 }

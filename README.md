@@ -5,7 +5,7 @@ Paste a Magic: The Gathering decklist, or a Moxfield or MTGTop8 deck link, and t
 1. **Recommends a land count** with Frank Karsten's formula, which uses average mana value, cheap card draw and spell/land double-faced cards.
 2. **Estimates the colored sources you need** in each color so every spell is castable on curve 90% of the time.
 3. **Simulates thousands of goldfish games** to test the manabase. The simulation handles London mulligans, land drops and lands that enter tapped. It casts card draw and selection spells (Opt, Consider, Stock Up, creatures that draw when they enter, loot effects) to dig for lands, and uses mana creatures and mana rocks once they are on the battlefield.
-4. **Searches for a better manabase**. It swaps basics and Standard-legal dual lands one at a time and keeps each swap that does better in simulation.
+4. **Searches for a better manabase**. It swaps basics and Standard-legal dual lands one at a time and keeps each swap that does better in simulation. Lands that do more than make mana (creature lands, lands that draw or make tokens, graveyard hate) stay as they are, because the simulator can't judge what they're worth. Untick "Keep lands that do more than make mana" (or pass `--swap-utility`) to let the search replace them too.
 5. **Compares land counts** from two fewer to two more lands, looking at land drops, flood and mana spent.
 
 Standard is the main target. Pioneer, Modern and Commander are included as previews (see `public/lib/formats.js`).
@@ -69,17 +69,18 @@ Each turn the bot follows these steps:
 1. Draw a card.
 2. If there's no land in hand, cast cheap draw spells first to look for one.
 3. Play the land that lets it cast the most this turn. It prefers a tapped land when that costs nothing, and pays life for a shockland only when that matters.
-4. Cast the most expensive spells it can afford, then spend leftover mana on draw spells. Mana creatures and mana rocks are cast early when they help; rocks can tap for mana right away and creatures from the next turn.
+4. Cast the most expensive spells it can afford, then spend leftover mana on draw spells. Mana creatures and mana rocks are cast early when they help; rocks can tap for mana right away and creatures from the next turn. Treasure tokens (from cards that make them on entering, each upkeep, or from Saga chapters) are spent only when nothing else can pay. Permanents that grant an extra land drop let the bot play another land.
 
 Scry, surveil and "look at the top N" effects keep lands while the bot is short on lands, and keep spells otherwise.
 
-The simulator understands these lands: basics, fast lands, slow lands, check lands, shocklands, pay-life double-faced lands, surveil lands, verges, pathways, thriving lands, painlands, fetches like Fabled Passage, lands that pick a basic land type (Multiversal Passage), lands that are untapped on your first three turns (Starting Town), lands whose colored mana can only cast creatures or only instants and sorceries (Cavern of Souls style), and plain tapped lands. A land with an "enters tapped unless" condition it doesn't recognize is treated as always tapped and listed in the notes.
+The simulator understands these lands: basics, fast lands, slow lands, check lands, shocklands, pay-life double-faced lands, surveil lands, verges, pathways, thriving lands, painlands, fetches like Fabled Passage, lands that pick a basic land type (Multiversal Passage), lands that are untapped on your first three turns (Starting Town), lands whose colored mana can only cast creatures or only instants and sorceries (Cavern of Souls style), lands that enter untapped if you behold a card type (Theorist's Sanctum), and plain tapped lands. A land with an "enters tapped unless" condition it doesn't recognize is treated as always tapped and listed in the notes.
 
 ## Known limits
 
 - Mana creatures and rocks that need more than a tap to make mana (sacrificing, discarding, tapping other creatures) aren't used as mana. The notes flag them.
 - Card data from Scryfall must be reachable from your browser. Decks from MTGTop8 use the same names as Scryfall, including double-faced cards written as "Front/Back".
-- Draw effects are read from rules text. Check the "Draw and selection spells" table to see what was detected.
+- Draw effects are read from rules text. Check the "Draw and selection spells" table to see what was detected. Draws that depend on the opponent, on sacrificing something, or on which colors paid for the spell aren't counted; the notes list them.
+- The search only values mana. It can't tell how good a creature land or a utility land is, which is why it keeps them by default.
 - Modal spells with a draw mode always use that mode.
 - Commander support is a preview. It doesn't handle commander tax or check color identity yet.
 
