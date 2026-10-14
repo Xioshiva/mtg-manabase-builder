@@ -1,6 +1,6 @@
 # Real Standard decklists
 
-Top-8 Standard decklists from [MTGTop8](https://www.mtgtop8.com/format?f=ST), fetched 2026-10-14 from the MTGO export of each deck. Card text in `cards.json` was copied from [mtg.wtf](https://mtg.wtf) (Scryfall is blocked from the environment these fixtures were built in), in the same shape as Scryfall card objects.
+Top-8 Standard decklists from [MTGTop8](https://www.mtgtop8.com/format?f=ST), fetched 2026-10-14 from the MTGO export of each deck. Card text in `cards.json` was copied from [mtg.wtf](https://mtg.wtf), or from another card site for the few cards it lacked (each card's `source` field names the site), because Scryfall is blocked from the environment these fixtures were built in. The cards are stored in the same shape as Scryfall card objects.
 
 | File | Archetype | Event | Deck |
 |---|---|---|---|

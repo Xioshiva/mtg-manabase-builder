@@ -17,6 +17,20 @@
  },
  {
   "object": "card",
+  "name": "Adventurer's Inn",
+  "layout": "normal",
+  "cmc": 0,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "",
+  "type_line": "Land — Town",
+  "oracle_text": "When this land enters, you gain 2 life.\n{T}: Add {C}.",
+  "color_identity": []
+ },
+ {
+  "object": "card",
   "name": "Ajani Resolute",
   "layout": "normal",
   "cmc": 2,
@@ -262,6 +276,23 @@
  },
  {
   "object": "card",
+  "name": "Blooming Marsh",
+  "layout": "normal",
+  "cmc": 0,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "iwantmymtg.net",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control two or fewer other lands.\n{T}: Add {B} or {G}.",
+  "color_identity": [
+   "B",
+   "G"
+  ]
+ },
+ {
+  "object": "card",
   "name": "Bofur, Reliable Guardian // Concerted Care",
   "layout": "adventure",
   "cmc": 1,
@@ -385,6 +416,68 @@
   "oracle_text": "Flash\nFlying, lifelink\nPower-up — {5}{W}{W}: Put a +1/+1 counter and an indestructible counter on Captain Marvel.",
   "color_identity": [
    "W"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Carnage, Crimson Chaos",
+  "layout": "normal",
+  "cmc": 4,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "{2}{B}{R}",
+  "type_line": "Legendary Creature — Symbiote Villain",
+  "oracle_text": "Trample\nWhen Carnage enters, return target creature card with mana value 3 or less from your graveyard to the battlefield. It gains \"This creature attacks each combat if able\" and \"When this creature deals combat damage to a player, sacrifice it.\"\nMayhem {B}{R}",
+  "color_identity": [
+   "B",
+   "R"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Carnivorous Cultivator // Enroot",
+  "layout": "other",
+  "cmc": 2,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "card_faces": [
+   {
+    "name": "Carnivorous Cultivator",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature — Elf Warlock",
+    "oracle_text": "Deathtouch\nThis creature enters prepared.\nWhenever this creature deals combat damage to a player, return target land card from your graveyard to your hand."
+   },
+   {
+    "name": "Enroot",
+    "mana_cost": "{G}",
+    "type_line": "Sorcery",
+    "oracle_text": "Search your library for a land card, put it into your graveyard, then shuffle."
+   }
+  ],
+  "type_line": "Creature — Elf Warlock // Sorcery",
+  "mana_cost": "{1}{G} // {G}",
+  "color_identity": [
+   "G"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Case of the Crimson Pulse",
+  "layout": "normal",
+  "cmc": 3,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "scrydex.com",
+  "mana_cost": "{2}{R}",
+  "type_line": "Enchantment — Case",
+  "oracle_text": "When this Case enters, discard a card, then draw two cards.\nTo solve — You have no cards in hand. (If unsolved, solve at the beginning of your end step.)\nSolved — At the beginning of your upkeep, discard your hand, then draw two cards.",
+  "color_identity": [
+   "R"
   ]
  },
  {
@@ -545,6 +638,22 @@
  },
  {
   "object": "card",
+  "name": "Cool but Rude",
+  "layout": "normal",
+  "cmc": 2,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "{1}{R}",
+  "type_line": "Enchantment — Class",
+  "oracle_text": "(Gain the next level as a sorcery to add its ability.)\nWhenever you attack, you may discard a card. If you do, draw a card.\n{1}{R}: Level 2\nWhenever you discard a card, this Class deals 2 damage to each opponent.\n{1}{R}: Level 3\nWhen this Class becomes level 3, search your library for a card, put it into your hand, shuffle, then discard a card at random.",
+  "color_identity": [
+   "R"
+  ]
+ },
+ {
+  "object": "card",
   "name": "Countersculpt",
   "layout": "normal",
   "cmc": 2,
@@ -558,6 +667,20 @@
   "color_identity": [
    "U"
   ]
+ },
+ {
+  "object": "card",
+  "name": "Cryptic Caves",
+  "layout": "normal",
+  "cmc": 0,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.cardsrealm.com",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: Draw a card. Activate only if you control five or more lands.",
+  "color_identity": []
  },
  {
   "object": "card",
@@ -689,6 +812,22 @@
  },
  {
   "object": "card",
+  "name": "Devout Decree",
+  "layout": "normal",
+  "cmc": 2,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "{1}{W}",
+  "type_line": "Sorcery",
+  "oracle_text": "Exile target creature or planeswalker that's black or red. Scry 1.",
+  "color_identity": [
+   "W"
+  ]
+ },
+ {
+  "object": "card",
   "name": "Disdainful Stroke",
   "layout": "normal",
   "cmc": 2,
@@ -718,6 +857,20 @@
   "color_identity": [
    "U"
   ]
+ },
+ {
+  "object": "card",
+  "name": "Doc Ock's Tentacles",
+  "layout": "normal",
+  "cmc": 1,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "{1}",
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "Whenever a creature you control with mana value 5 or greater enters, you may attach this Equipment to it.\nEquipped creature gets +4/+4.\nEquip {5}",
+  "color_identity": []
  },
  {
   "object": "card",
@@ -811,6 +964,23 @@
   "type_line": "Creature — Dwarf Warrior",
   "oracle_text": "Equip abilities you activate that target this creature cost {2} less to activate.",
   "color_identity": [
+   "R"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Dáin's Company",
+  "layout": "normal",
+  "cmc": 2,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "{R}{W}",
+  "type_line": "Creature — Dwarf Warrior",
+  "oracle_text": "This creature has lifelink as long as you control another Dwarf.\nWhen this creature enters, look at the top four cards of your library. You may reveal a Dwarf or Equipment card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+  "color_identity": [
+   "W",
    "R"
   ]
  },
@@ -969,6 +1139,22 @@
  },
  {
   "object": "card",
+  "name": "Eumidian Terrabotanist",
+  "layout": "normal",
+  "cmc": 2,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "{1}{G}",
+  "type_line": "Creature — Insect Druid",
+  "oracle_text": "Landfall — Whenever a land you control enters, you gain 1 life.",
+  "color_identity": [
+   "G"
+  ]
+ },
+ {
+  "object": "card",
   "name": "Fabled Passage",
   "layout": "normal",
   "cmc": 0,
@@ -1025,6 +1211,40 @@
   "type_line": "Instant",
   "oracle_text": "Tiered\n• Fire — {0} — Fire Magic deals 1 damage to each creature.\n• Fira — {2} — Fire Magic deals 2 damage to each creature.\n• Firaga — {5} — Fire Magic deals 3 damage to each creature.",
   "color_identity": [
+   "R"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Fireglass Mentor",
+  "layout": "normal",
+  "cmc": 2,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "scryfall.com",
+  "mana_cost": "{B}{R}",
+  "type_line": "Creature — Lizard Warlock",
+  "oracle_text": "At the beginning of your second main phase, if an opponent lost life this turn, exile the top two cards of your library. Choose one of them. Until end of turn, you may play that card.",
+  "color_identity": [
+   "B",
+   "R"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Flamecache Gecko",
+  "layout": "normal",
+  "cmc": 2,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "grimoria.app",
+  "mana_cost": "{1}{R}",
+  "type_line": "Creature — Lizard Warlock",
+  "oracle_text": "When this creature enters, if an opponent lost life this turn, add {B}{R}.\n{1}{R}, Discard a card: Draw a card.",
+  "color_identity": [
+   "B",
    "R"
   ]
  },
@@ -1268,6 +1488,22 @@
  },
  {
   "object": "card",
+  "name": "Greedy Freebooter",
+  "layout": "normal",
+  "cmc": 1,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtgdecks.net",
+  "mana_cost": "{B}",
+  "type_line": "Creature — Human Pirate",
+  "oracle_text": "When this creature dies, scry 1 and create a Treasure token. (To scry 1, look at the top card of your library. You may put that card on the bottom. A Treasure token is an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+  "color_identity": [
+   "B"
+  ]
+ },
+ {
+  "object": "card",
   "name": "Haliya, Guided by Light",
   "layout": "normal",
   "cmc": 3,
@@ -1463,6 +1699,23 @@
  },
  {
   "object": "card",
+  "name": "Ingris Stingerquill",
+  "layout": "normal",
+  "cmc": 3,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "{B}{R}{R}",
+  "type_line": "Legendary Creature — Elder Sphinx",
+  "oracle_text": "Flying\nWhenever a creature you control attacks, that creature deals 1 damage to each opponent.\n{4}: Create a 2/2 colorless Wizard Soldier creature token named Cadet. Then creatures you control gain haste until end of turn.",
+  "color_identity": [
+   "B",
+   "R"
+  ]
+ },
+ {
+  "object": "card",
   "name": "Inspiring Vantage",
   "layout": "normal",
   "cmc": 0,
@@ -1475,6 +1728,22 @@
   "oracle_text": "This land enters tapped unless you control two or fewer other lands.\n{T}: Add {R} or {W}.",
   "color_identity": [
    "W",
+   "R"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Inti, Seneschal of the Sun",
+  "layout": "normal",
+  "cmc": 2,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "{1}{R}",
+  "type_line": "Legendary Creature — Human Knight",
+  "oracle_text": "Whenever you attack, you may discard a card. When you do, put a +1/+1 counter on target attacking creature. It gains trample until end of turn.\nWhenever you discard one or more cards, exile the top card of your library. You may play that card until your next end step.",
+  "color_identity": [
    "R"
   ]
  },
@@ -1737,6 +2006,23 @@
  },
  {
   "object": "card",
+  "name": "Maelstrom Pulse",
+  "layout": "normal",
+  "cmc": 3,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.cardsrealm.com",
+  "mana_cost": "{1}{B}{G}",
+  "type_line": "Sorcery",
+  "oracle_text": "Destroy target nonland permanent and all other permanents with the same name as that permanent.",
+  "color_identity": [
+   "B",
+   "G"
+  ]
+ },
+ {
+  "object": "card",
   "name": "Magebane Lizard",
   "layout": "normal",
   "cmc": 2,
@@ -1763,6 +2049,22 @@
   "mana_cost": "{R}",
   "type_line": "Creature — Shark Pirate",
   "oracle_text": "Whenever you discard one or more cards, put that many +1/+1 counters on this creature.\nCycling {2}",
+  "color_identity": [
+   "R"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Master of Barbs",
+  "layout": "normal",
+  "cmc": 2,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "{1}{R}",
+  "type_line": "Creature — Lizard Bard",
+  "oracle_text": "Menace\nWhenever one or more opponents are dealt noncombat damage, creatures you control get +1/+0 until end of turn.",
   "color_identity": [
    "R"
   ]
@@ -1875,6 +2177,22 @@
   "type_line": "Land",
   "oracle_text": "As this land enters, choose a basic land type. Then you may pay 2 life. If you don't, it enters tapped.\nThis land is the chosen type.",
   "color_identity": []
+ },
+ {
+  "object": "card",
+  "name": "Negate",
+  "layout": "normal",
+  "cmc": 2,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "{1}{U}",
+  "type_line": "Instant",
+  "oracle_text": "Counter target noncreature spell.",
+  "color_identity": [
+   "U"
+  ]
  },
  {
   "object": "card",
@@ -2051,6 +2369,22 @@
  },
  {
   "object": "card",
+  "name": "Pick Your Poison",
+  "layout": "normal",
+  "cmc": 1,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "{G}",
+  "type_line": "Sorcery",
+  "oracle_text": "Choose one —\n• Each opponent sacrifices an artifact of their choice.\n• Each opponent sacrifices an enchantment of their choice.\n• Each opponent sacrifices a creature with flying of their choice.",
+  "color_identity": [
+   "G"
+  ]
+ },
+ {
+  "object": "card",
   "name": "Pinnacle Starcage",
   "layout": "normal",
   "cmc": 3,
@@ -2064,6 +2398,20 @@
   "color_identity": [
    "W"
   ]
+ },
+ {
+  "object": "card",
+  "name": "Pit of Offerings",
+  "layout": "normal",
+  "cmc": 0,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "",
+  "type_line": "Land — Cave",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, exile up to three target cards from graveyards.\n{T}: Add {C}.\n{T}: Add one mana of any of the exiled cards' colors.",
+  "color_identity": []
  },
  {
   "object": "card",
@@ -2242,6 +2590,23 @@
   "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
   "color_identity": [
    "W"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Restless Anchorage",
+  "layout": "normal",
+  "cmc": 0,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "",
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W} or {U}.\n{1}{W}{U}: Until end of turn, this land becomes a 2/3 white and blue Bird creature with flying. It's still a land.\nWhenever this land attacks, create a Map token.",
+  "color_identity": [
+   "W",
+   "U"
   ]
  },
  {
@@ -2988,6 +3353,22 @@
  },
  {
   "object": "card",
+  "name": "Tersa Lightshatter",
+  "layout": "normal",
+  "cmc": 3,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "{2}{R}",
+  "type_line": "Legendary Creature — Orc Wizard",
+  "oracle_text": "Haste\nWhen Tersa Lightshatter enters, discard up to two cards, then draw that many cards.\nWhenever Tersa Lightshatter attacks, if there are seven or more cards in your graveyard, exile a card at random from your graveyard. You may play that card this turn.",
+  "color_identity": [
+   "R"
+  ]
+ },
+ {
+  "object": "card",
   "name": "The Lonely Mountain",
   "layout": "normal",
   "cmc": 0,
@@ -3078,6 +3459,39 @@
   "oracle_text": "Flash\nFlying\nWasp's Sting — When The Wondrous Wasp enters, tap up to one target creature. It loses all abilities for as long as The Wondrous Wasp remains on the battlefield.",
   "color_identity": [
    "U"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Theorist's Sanctum",
+  "layout": "normal",
+  "cmc": 0,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "playgroup.gg",
+  "mana_cost": "",
+  "type_line": "Land — Island",
+  "oracle_text": "({T}: Add {U}.)\nAs this land enters, you may behold a Jace. If you don't, this land enters tapped. (To behold a Jace, choose a Jace you control or reveal a Jace card from your hand.)\n{2}{U}, {T}: Empower Jace 2.",
+  "color_identity": [
+   "U"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Theorix Charm",
+  "layout": "normal",
+  "cmc": 2,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "{U}{B}",
+  "type_line": "Instant",
+  "oracle_text": "Choose one —\n• Counter target noncreature spell unless its controller pays {2}.\n• Target creature gets -2/-2 until end of turn.\n• Mill three cards, then draw a card.",
+  "color_identity": [
+   "U",
+   "B"
   ]
  },
  {
@@ -3175,6 +3589,23 @@
  },
  {
   "object": "card",
+  "name": "Uldaros Theorix",
+  "layout": "normal",
+  "cmc": 6,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "{3}{U}{B}{B}",
+  "type_line": "Legendary Creature — Elder Sphinx",
+  "oracle_text": "Flying\nWhen Uldaros Theorix enters, if you cast him, exile up to one target nonland card of each card type from your graveyard. Copy those cards. You may cast any number of spells with total mana value 6 or less from among the copies without paying their mana costs. (Permanent spells cast this way become tokens.)",
+  "color_identity": [
+   "U",
+   "B"
+  ]
+ },
+ {
+  "object": "card",
   "name": "Ultima",
   "layout": "normal",
   "cmc": 5,
@@ -3249,6 +3680,22 @@
   "mana_cost": "{2}{B} // {3}{B}{B}",
   "color_identity": [
    "B"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Valley Flamecaller",
+  "layout": "normal",
+  "cmc": 3,
+  "legalities": {
+   "standard": "legal"
+  },
+  "source": "mtg.wtf",
+  "mana_cost": "{2}{R}",
+  "type_line": "Creature — Lizard Warlock",
+  "oracle_text": "If a Lizard, Mouse, Otter, or Raccoon you control would deal damage to a permanent or player, it deals that much damage plus 1 instead.",
+  "color_identity": [
+   "R"
   ]
  },
  {

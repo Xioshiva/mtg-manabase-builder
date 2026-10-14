@@ -69,7 +69,7 @@ export function simulate(model, opts = {}) {
   // bf: lands on the battlefield. perms: nonland permanents we cast or made (for mana and
   // for "unless you control an Equipment"-style checks). Mana sources share one shape:
   // { L, mask, types, isBasic, isLand, tapped, etbTapped, enteredTurn, readyTurn }.
-  let lib, hand, bf, perms, turn, pendingDiscard;
+  let lib, hand, bf, perms, turn, pendingDiscard, expiring;
 
   const isLandIdx = (ci) => landish[ci];
   const landsInHand = () => { let n = 0; for (const ci of hand) if (landish[ci]) n++; return n; };
@@ -146,6 +146,7 @@ export function simulate(model, opts = {}) {
       case 'earlyTurns': return turn > 3;
       case 'lowLife': return turn < 5;
       case 'controlPerm': return !perms.some((p) => L.etbPerm.split(' ').every((w) => p.typeLine.includes(w)));
+      case 'behold': return !controls(L.etbPerm);
       default: return true;
     }
   }
@@ -181,7 +182,8 @@ export function simulate(model, opts = {}) {
       if ((landish[ci] || d.spell?.isPermanent) && filter.includes('permanent')) return true;
       if (d.spell && d.spell.isCreature && filter.includes('creature')) return true;
       if (d.spell && !d.spell.isCreature && filter.includes('noncreature')) return true;
-      return false;
+      const typeLine = (d.spell?.typeLine || '').toLowerCase();
+      return filter.some((f) => f.startsWith('type:') && typeLine.includes(f.slice(5)));
     };
     for (let t = 0; t < take; t++) {
       const wantLand = needLand();
@@ -211,6 +213,26 @@ export function simulate(model, opts = {}) {
     }
   }
 
+  // Discard up to n cards we don't want (spare lands when we have enough, spells we can't
+  // cast soon when we're short), then draw that many.
+  function rummage(n) {
+    let k = 0;
+    for (; k < n; k++) {
+      let pick = -1;
+      if (!needLand()) pick = hand.findIndex((ci) => defs[ci].land);
+      else {
+        const reach = bf.length + landsInHand() + 1;
+        for (let i = 0; i < hand.length; i++) {
+          const sp = defs[hand[i]].spell;
+          if (sp && !landish[hand[i]] && sp.cmc > reach && (pick < 0 || sp.cmc > defs[hand[pick]].spell.cmc)) pick = i;
+        }
+      }
+      if (pick < 0) break;
+      hand.splice(pick, 1);
+    }
+    drawCards(k);
+  }
+
   function discardRandom(n) {
     for (let k = 0; k < n && hand.length; k++) hand.splice(Math.floor(rng() * hand.length), 1);
   }
@@ -220,11 +242,15 @@ export function simulate(model, opts = {}) {
     if (e.selectFirst) { if (e.scry) select(e.scry); if (e.surveil) select(e.surveil); }
     const look = e.lookPerLand ? bf.length : e.look;
     if (look) dig(look, e.take, e.takeFilter);
+    if (e.discardFirst) discard(e.discard);
+    if (e.rummage) rummage(e.rummage);
+    // Cards we may play only this turn go to hand and are removed again at end of turn.
+    for (let k = 0; k < (e.impulse || 0) && lib.length; k++) { const ci = lib.pop(); hand.push(ci); expiring.push(ci); }
     drawCards(e.draw);
     let discarded = e.discard;
     // "Discard two cards unless you discard a creature card": pitch the priciest creature.
     const creature = e.discardOrCreature ? hand.reduce((b, ci, i) => (defs[ci].spell?.isCreature && !landish[ci] && (b < 0 || defs[ci].spell.cmc > defs[hand[b]].spell.cmc) ? i : b), -1) : -1;
-    if (creature >= 0) { hand.splice(creature, 1); discarded = 1; } else if (e.discard) discard(e.discard);
+    if (creature >= 0) { hand.splice(creature, 1); discarded = 1; } else if (e.discard && !e.discardFirst) discard(e.discard);
     st.extraCards += e.draw + (look ? e.take : 0) - discarded - (e.delayedDiscard || 0);
     if (e.delayedDiscard) pendingDiscard += e.delayedDiscard;
     if (!e.selectFirst) { if (e.scry) select(e.scry); if (e.surveil) select(e.surveil); }
@@ -439,6 +465,7 @@ export function simulate(model, opts = {}) {
     bf = [];
     perms = [];
     pendingDiscard = 0;
+    expiring = [];
     seenTurn.fill(0);
     let spentTotal = 0;
     for (turn = 1; turn <= turns; turn++) {
@@ -491,6 +518,8 @@ export function simulate(model, opts = {}) {
         spent += used;
         playLands();
       }
+      for (const ci of expiring) { const i = hand.lastIndexOf(ci); if (i >= 0) hand.splice(i, 1); }
+      expiring.length = 0;
       spentTotal += spent;
       st.spent[turn] += spentTotal;
     }

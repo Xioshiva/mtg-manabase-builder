@@ -135,6 +135,7 @@ export function parseLand(face, producedFallback) {
   if (/enters( the battlefield)? tapped/.test(lower)) {
     let m;
     if ((m = lower.match(/you may pay (\d+) life/))) { land.etb = 'shock'; land.shockLife = Number(m[1]); }
+    else if ((m = lower.match(/you may behold an? ([a-z]+)\. if you don't, (?:this land|it) enters tapped/))) { land.etb = 'behold'; land.etbPerm = m[1]; }
     else if (/unless you control two or fewer other lands/.test(lower)) land.etb = 'fast';
     else if (/unless you control two or more other lands/.test(lower)) land.etb = 'slow';
     else if (/unless you control a basic land/.test(lower)) land.etb = 'basic';
@@ -159,12 +160,21 @@ export function parseLand(face, producedFallback) {
   return land;
 }
 
+// "a Dwarf or Equipment card" -> ['type:dwarf', 'type:equipment']. Card types map to
+// 'land', 'creature', 'noncreature' and 'permanent'; any other word must be on the type line.
+const SKIP_WORDS = new Set(['a', 'an', 'or', 'and', 'up', 'to', 'one', 'two', 'any', 'number', 'of', 'basic', 'card', 'cards']);
 function takeFilter(kinds) {
   const filter = [];
-  if (/\bpermanent\b/.test(kinds) && !/nonland/.test(kinds)) filter.push('permanent');
-  if (/\bland\b/.test(kinds)) filter.push('land');
-  if (/creature/.test(kinds)) filter.push('creature');
-  if (/instant|sorcery|noncreature|artifact|enchantment|planeswalker/.test(kinds)) filter.push('noncreature');
+  const add = (f) => { if (!filter.includes(f)) filter.push(f); };
+  if (/nonland permanent/.test(kinds)) { for (const f of ['creature', 'type:artifact', 'type:enchantment', 'type:planeswalker', 'type:battle']) add(f); kinds = kinds.replace(/nonland permanent/, ''); }
+  for (const w of kinds.split(/[\s,/]+/)) {
+    if (!w || SKIP_WORDS.has(w)) continue;
+    if (/^lands?$/.test(w)) add('land');
+    else if (/^creatures?$/.test(w)) add('creature');
+    else if (/^permanents?$/.test(w)) add('permanent');
+    else if (w === 'noncreature') add('noncreature');
+    else add(`type:${w}`);
+  }
   return filter.length ? filter : null;
 }
 
@@ -192,7 +202,12 @@ function dropConditional(line, notes) {
 export function parseDrawEffect(oracleText, typeLine, notes = []) {
   if (!oracleText) return null;
   const isSpell = /\b(Instant|Sorcery)\b/.test(typeLine || '');
-  const eff = { draw: 0, scry: 0, surveil: 0, look: 0, lookPerLand: false, take: 0, takeFilter: null, discard: 0, discardOrCreature: false, delayedDiscard: 0, selectFirst: false };
+  const eff = {
+    draw: 0, scry: 0, surveil: 0, look: 0, lookPerLand: false, take: 0, takeFilter: null,
+    discard: 0, discardFirst: false, discardOrCreature: false, delayedDiscard: 0, selectFirst: false,
+    rummage: 0, // "discard up to N cards, then draw that many"
+    impulse: 0, // "mill/exile the top N cards; you may play them this turn"
+  };
   let modesCount = false;
   for (const raw of stripReminder(oracleText).split('\n')) {
     let l = raw.toLowerCase().trim();
@@ -239,13 +254,20 @@ export function parseDrawEffect(oracleText, typeLine, notes = []) {
       eff.take = 1;
       eff.takeFilter = takeFilter(mill[2]);
     }
+    const discardFirst = l.match(/\bdiscard (a|an|one|two|three|\d+) cards?, then draw/);
+    if (discardFirst) { eff.discard += num(discardFirst[1]); eff.discardFirst = true; }
     const discard = l.match(/\bthen discard (a|an|one|two|three|\d+) cards?/);
     if (discard) eff.discard += num(discard[1]);
     if (discard && /then discard \w+ cards? unless you discard an? creature card/.test(l)) eff.discardOrCreature = true;
+    const rummage = l.match(/\bdiscard up to (one|two|three|\d+) cards?, then draw that many cards/);
+    if (rummage) eff.rummage += num(rummage[1]);
+    const impulse = l.match(/\b(?:mill|exile) the top (card|\w+ cards) of your library\. (?:until end of turn, )?you may play (?:that card|it|those cards|them) this turn/)
+      || l.match(/\bmill (a|one|two|three) cards?\. you may play (?:that card|it|those cards|them) this turn/);
+    if (impulse) eff.impulse += impulse[1] === 'card' ? 1 : num(impulse[1].replace(' cards', ''));
     const later = l.match(/at the beginning of your next upkeep, discard (a|an|one|two|three|\d+) cards? at random/);
     if (later) eff.delayedDiscard = (eff.delayedDiscard || 0) + num(later[1]);
   }
-  if (!eff.draw && !eff.scry && !eff.surveil && !eff.look && !eff.lookPerLand) return null;
+  if (!eff.draw && !eff.scry && !eff.surveil && !eff.look && !eff.lookPerLand && !eff.rummage && !eff.impulse) return null;
   return eff;
 }
 
@@ -319,9 +341,12 @@ export function describeEffect(eff) {
   const parts = [];
   if (eff.scry && eff.selectFirst) parts.push(`scry ${eff.scry}`);
   if (eff.surveil && eff.selectFirst) parts.push(`surveil ${eff.surveil}`);
-  if (eff.look || eff.lookPerLand) parts.push(`look at ${eff.lookPerLand ? 'one card per land' : eff.look}, take ${eff.take}${eff.takeFilter ? ' ' + eff.takeFilter.join('/') : ''}`);
+  if (eff.look || eff.lookPerLand) parts.push(`look at ${eff.lookPerLand ? 'one card per land' : eff.look}, take ${eff.take}${eff.takeFilter ? ' ' + eff.takeFilter.map((f) => f.replace('type:', '')).join('/') : ''}`);
+  if (eff.rummage) parts.push(`discard up to ${eff.rummage}, draw that many`);
+  if (eff.impulse) parts.push(`play the top ${eff.impulse === 1 ? 'card' : eff.impulse + ' cards'} this turn`);
   if (eff.draw) parts.push(`draw ${eff.draw}`);
-  if (eff.discard) parts.push(`discard ${eff.discard}${eff.discardOrCreature ? ' (or one creature)' : ''}`);
+  if (eff.discard && eff.discardFirst) parts.unshift(`discard ${eff.discard}`);
+  else if (eff.discard) parts.push(`discard ${eff.discard}${eff.discardOrCreature ? ' (or one creature)' : ''}`);
   if (eff.delayedDiscard) parts.push(`discard ${eff.delayedDiscard} at random next turn`);
   if (eff.scry && !eff.selectFirst) parts.push(`scry ${eff.scry}`);
   if (eff.surveil && !eff.selectFirst) parts.push(`surveil ${eff.surveil}`);
@@ -364,7 +389,7 @@ export function normalizeCard(sc, count = 1) {
     if (def.spell.mana) {
       def.producesManaNonLand = true;
       def.notes.push(...def.spell.mana.notes);
-    } else if (/\{t\}[^:]*: add\b/i.test(front.oracle_text || '')) {
+    } else if (/\{t\}[^:]*: add\b/i.test(stripReminder(front.oracle_text || ''))) {
       def.notes.push('Its mana ability needs another resource, so the simulator does not use it as a mana source');
     }
     if (def.spell.costReduction) def.notes.push('Cost reduction is not modelled, so it is left out of the on-curve average');
@@ -403,6 +428,7 @@ export function landSummary(land) {
     slow: 'untapped from your third land', basic: 'untapped with a basic', check: 'untapped with the right land type',
     reveal: 'untapped if you reveal the right land type', multiplayer: 'tapped in 1v1', unknown: 'tapped (unknown condition)',
     earlyTurns: 'untapped on turns 1-3', lowLife: 'tapped until turn 5', controlPerm: `untapped with ${land.etbPerm ? 'an ' + land.etbPerm : 'the right permanent'}`,
+    behold: `untapped if you have ${land.etbPerm && /^[aeiou]/.test(land.etbPerm) ? 'an' : 'a'} ${land.etbPerm ? land.etbPerm[0].toUpperCase() + land.etbPerm.slice(1) : ''} in hand or in play`,
   }[land.etb];
   const extras = [];
   if (land.etb === 'shock' && land.shockLife !== 2) extras.push(`pay ${land.shockLife} life`);

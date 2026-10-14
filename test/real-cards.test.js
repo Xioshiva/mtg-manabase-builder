@@ -172,3 +172,20 @@ test('"Sacrifice an artifact or creature or pay {4}" is cheap once a creature is
   assert.equal(withGuys.spells.find((s) => s.name === 'Stir Up Trouble').curveTurn, 5);
   assert.ok(withGuys.turns[1].manaSpent > withSpells.turns[1].manaSpent);
 });
+
+test('third-pass fixes: rummage, play-this-turn, discard-then-draw, typed digs, behold lands', () => {
+  assert.equal(real('Tersa Lightshatter').spell.effect.rummage, 2);
+  assert.equal(real('Tablet of Discovery').spell.effect.impulse, 1);
+  const pulse = real('Case of the Crimson Pulse').spell.effect;
+  assert.deepEqual([pulse.discard, pulse.discardFirst, pulse.draw], [1, true, 2]);
+  assert.deepEqual(real("Dáin's Company").spell.effect.takeFilter, ['type:dwarf', 'type:equipment']);
+  assert.deepEqual(real('Greedy Freebooter').notes, []); // the Treasure reminder text is not its own mana ability
+  const sanctum = real("Theorist's Sanctum").land;
+  assert.deepEqual([sanctum.etb, sanctum.etbPerm], ['behold', 'jace']);
+  // With Jaces in the deck the Sanctum often enters untapped; with no Jaces it never does.
+  const deck = (third) => ({ cards: [real("Theorist's Sanctum", 24), spell('Opt-ish', '{U}', 1, 20, { type: 'Instant' }), third], format: standard });
+  const jace = simulate(deck(spell('Jace Test', '{2}{U}', 3, 16, { type: 'Legendary Planeswalker — Jace' })), { games: 2000, seed: 3 });
+  const noJace = simulate(deck(spell('Not Jace', '{2}{U}', 3, 16, { type: 'Legendary Planeswalker — Kaito' })), { games: 2000, seed: 3 });
+  assert.ok(jace.spells.find((x) => x.name === 'Opt-ish').onCurve > 0.5);
+  assert.equal(noJace.spells.find((x) => x.name === 'Opt-ish').onCurve, 0);
+});

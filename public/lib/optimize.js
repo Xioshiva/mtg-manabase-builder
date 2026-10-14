@@ -17,7 +17,7 @@ export function landMaskOf(L) {
 // Rough prior so the search tries the most promising duals first.
 function candidateQuality(L, deckMask) {
   const useful = popcount(landMaskOf(L) & deckMask);
-  const etb = { untapped: 3, shock: 3, fast: 2.5, earlyTurns: 2.5, slow: 2, check: 2, reveal: 2, basic: 2, controlPerm: 1.5, lowLife: 1.2, multiplayer: 1, tapped: 1, unknown: 0.5 }[L.etb] ?? 1;
+  const etb = { untapped: 3, shock: 3, fast: 2.5, earlyTurns: 2.5, slow: 2, check: 2, reveal: 2, basic: 2, controlPerm: 1.5, behold: 1.5, lowLife: 1.2, multiplayer: 1, tapped: 1, unknown: 0.5 }[L.etb] ?? 1;
   return useful * 10 + etb + (L.surveil ? 0.5 : 0) + (L.fetch ? 1 : 0);
 }
 
