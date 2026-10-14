@@ -25,7 +25,8 @@ test('reads land colors, verges, pathways, thriving lands, fetches and painlands
   assert.equal(thriving.mask, C.U);
   assert.equal(thriving.choices.length, 4);
   assert.equal(card('Fabled Passage').land.fetch.untapAt, 4);
-  assert.equal(card('Shivan Reef').land.pain, 1);
+  assert.equal(card('Shivan Reef').land.mask, C.C);
+  assert.deepEqual(card('Shivan Reef').land.restricted, [{ mask: C.U | C.R, kind: null, life: 1 }]);
 });
 
 test('reads spell/land double-faced cards', () => {

@@ -25,7 +25,7 @@ export function parseDecklist(text) {
       .replace(/\s+\([A-Z0-9]{2,6}\)\s*[\w-]*\s*$/i, '') // (SET) 123
       .replace(/\s+\[[^\]]+\]\s*$/, '')
       .replace(/\s+\*[A-Z]+\*\s*$/i, '') // *F* foil markers
-      .replace(/\s+\/\/\s+.*$/, '') // keep the front face of "A // B"
+      .replace(/\s*\/\/?\s*.*$/, '') // keep the front face of "A // B" or MTGTop8's "A/B"
       .trim();
     const count = m[1] ? parseInt(m[1], 10) : 1;
     if (!name) { errors.push(line); continue; }
@@ -39,4 +39,19 @@ export function parseDecklist(text) {
     commander: [...commander].map(([name, count]) => ({ name, count })),
     errors,
   };
+}
+
+// Lookup key for card names, so case and accents don't matter ("Kili" finds "Kíli").
+export function cardKey(name) {
+  return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+// Map(cardKey -> Scryfall card) for a list of cards, by full name and by each face's name.
+export function indexCards(list) {
+  const map = new Map();
+  for (const c of list) {
+    map.set(cardKey(c.name), c);
+    for (const f of c.card_faces || []) if (!map.has(cardKey(f.name))) map.set(cardKey(f.name), c);
+  }
+  return map;
 }

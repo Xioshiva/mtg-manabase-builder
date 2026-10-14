@@ -4,7 +4,7 @@
 // --cards reads Scryfall card JSON from a file instead of the network (lands in it that
 // aren't in the deck are offered to the optimizer).
 import { readFileSync } from 'node:fs';
-import { parseDecklist } from './public/lib/decklist.js';
+import { parseDecklist, cardKey, indexCards } from './public/lib/decklist.js';
 import { fetchCollection, searchLands } from './public/lib/scryfall.js';
 import { buildModel, runAnalysis, deckColors } from './public/lib/analysis.js';
 import { getFormat } from './public/lib/formats.js';
@@ -28,9 +28,8 @@ let cards, candidateCards = [];
 const cardFile = opt('--cards');
 if (cardFile) {
   const raw = JSON.parse(readFileSync(cardFile, 'utf8'));
-  cards = new Map();
-  for (const c of raw) { cards.set(c.name.toLowerCase(), c); for (const f of c.card_faces || []) cards.set(f.name.toLowerCase(), c); }
-  const inDeck = new Set(names.map((n) => cards.get(n.toLowerCase())).filter(Boolean));
+  cards = indexCards(raw);
+  const inDeck = new Set(names.map((n) => cards.get(cardKey(n))).filter(Boolean));
   candidateCards = raw.filter((c) => !inDeck.has(c) && /\bLand\b/.test(c.type_line || c.card_faces?.[0]?.type_line || '') && !/Basic/.test(c.type_line || ''));
 } else {
   process.stderr.write('Fetching cards from Scryfall…\n');
@@ -71,7 +70,7 @@ show('Suggested manabase', r.suggested);
 const main = r.suggested || r.current;
 console.log(`\n${main.sim.games} games per manabase; ± is the 95% margin of error.`);
 console.log('\nOn-curve castability (when held on its turn):');
-for (const s of main.sim.spells.sort((a, b) => a.cmc - b.cmc)) console.log(`  ${pct(s.onCurve)} ±${(s.onCurveMoe * 100).toFixed(1).padStart(4)}  MV${s.cmc} ${s.copies}x ${s.name}${s.isDraw ? ' (draw)' : ''}`);
+for (const s of main.sim.spells.sort((a, b) => a.cmc - b.cmc)) console.log(`  ${pct(s.onCurve)} ±${(s.onCurveMoe * 100).toFixed(1).padStart(4)}  MV${s.cmc} ${s.copies}x ${s.name}${s.isDraw ? ' (draw)' : ''}${s.costReduction ? ' (cost reduction not modelled)' : ''}${s.curveTurn !== s.cmc ? ` (checked turn ${s.curveTurn})` : ''}`);
 console.log('\nLand count sweep:');
 for (const s of r.sweep) console.log(`  ${s.lands} lands: on curve ${pct(s.castOnCurve)} · 4th land T4 ${pct(s.fourthLandOnTurn4)} · flood ${pct(s.floodRate)} · mana by T7 ${s.manaSpent.toFixed(1)}`);
 if (r.drawSpells.length) console.log('\nDraw spells: ' + r.drawSpells.map((d) => `${d.name} (${d.effect})`).join('; '));

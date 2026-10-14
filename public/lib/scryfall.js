@@ -1,5 +1,7 @@
 // Scryfall client. Works in the browser (Scryfall allows cross-origin requests)
 // and in Node 18+.
+import { cardKey } from './decklist.js';
+
 const API = 'https://api.scryfall.com';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -9,7 +11,7 @@ async function getJson(url, init, fetchImpl) {
   return res.json();
 }
 
-// names -> { cards: Map(lowercased requested name -> scryfall card), notFound: [name] }
+// names -> { cards: Map(cardKey(requested name) -> scryfall card), notFound: [name] }
 export async function fetchCollection(names, { fetchImpl = globalThis.fetch, onProgress } = {}) {
   const cards = new Map();
   const notFound = [];
@@ -23,12 +25,12 @@ export async function fetchCollection(names, { fetchImpl = globalThis.fetch, onP
     }, fetchImpl);
     const byName = new Map();
     for (const c of body.data || []) {
-      byName.set(c.name.toLowerCase(), c);
-      for (const f of c.card_faces || []) byName.set(f.name.toLowerCase(), c);
+      byName.set(cardKey(c.name), c);
+      for (const f of c.card_faces || []) byName.set(cardKey(f.name), c);
     }
     for (const n of batch) {
-      const c = byName.get(n.toLowerCase());
-      if (c) cards.set(n.toLowerCase(), c); else notFound.push(n);
+      const c = byName.get(cardKey(n));
+      if (c) cards.set(cardKey(n), c); else notFound.push(n);
     }
     if (onProgress) onProgress(Math.min(i + 75, unique.length), unique.length);
     if (i + 75 < unique.length) await sleep(100);

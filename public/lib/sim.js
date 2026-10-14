@@ -3,7 +3,10 @@
 // biggest spells the lands can pay for. It measures land drops, whether each spell
 // could be cast on curve, and how much mana actually got used.
 import { makeRng, shuffle } from './rng.js';
-import { payCost, popcount, COLOR_ORDER, COLOR_BITS } from './mana.js';
+import { payCost, popcount, COLOR_ORDER, COLOR_BITS, ANY_COLOR } from './mana.js';
+
+// A Treasure token: one mana of any color, used up when tapped.
+const TREASURE = { mask: ANY_COLOR, cond: [], restricted: [] };
 
 export function colorDemand(cards) {
   const demand = { W: 0, U: 0, B: 0, R: 0, G: 0 };
@@ -37,7 +40,8 @@ export function simulate(model, opts = {}) {
   defs.forEach((d, i) => { for (let k = 0; k < d.count; k++) deckList.push(i); });
   const landish = defs.map((d) => !!(d.land || d.mdfcLand));
   const tracked = [];
-  defs.forEach((d, i) => { if (d.count > 0 && d.spell && !d.filler && d.spell.cmc >= 1 && d.spell.cmc <= turns) tracked.push(i); });
+  const curveTurn = (d) => d.spell.curveTurn ?? d.spell.cmc;
+  defs.forEach((d, i) => { if (d.count > 0 && d.spell && !d.filler && curveTurn(d) >= 1 && curveTurn(d) <= turns) tracked.push(i); });
   const trackedSet = new Uint8Array(defs.length);
   for (const i of tracked) trackedSet[i] = 1;
   const seenTurn = new Int32Array(defs.length);
@@ -62,18 +66,72 @@ export function simulate(model, opts = {}) {
     onCurveGivenEnough: new Float64Array(defs.length),
   };
 
-  let lib, hand, bf, turn;
+  // bf: lands on the battlefield. perms: nonland permanents we cast or made (for mana and
+  // for "unless you control an Equipment"-style checks). Mana sources share one shape:
+  // { L, mask, types, isBasic, isLand, tapped, etbTapped, enteredTurn, readyTurn }.
+  let lib, hand, bf, perms, turn, pendingDiscard;
 
   const isLandIdx = (ci) => landish[ci];
   const landsInHand = () => { let n = 0; for (const ci of hand) if (landish[ci]) n++; return n; };
   const needLand = (extra = 0) => bf.length + landsInHand() + extra < Math.min(wantLands, turn + 2);
+  const controls = (word) => perms.some((p) => p.typeLine.includes(word)) || hand.some((ci) => (defs[ci].spell?.typeLine || '').toLowerCase().includes(word));
 
-  function landMask(x) {
+  // Mana a source can make for a spell of `kind` ('creature' | 'spell' | 'other'; null = any).
+  function srcMask(x, kind, freeOnly) {
     let m = x.mask;
     for (const cd of x.L.cond) {
-      for (const y of bf) if (y.types & cd.types) { m |= cd.mask; break; }
+      if (cd.basicOrFresh) {
+        if (x.enteredTurn === turn || bf.some((y) => y.isBasic)) m |= cd.mask;
+      } else {
+        for (const y of bf) if (y.types & cd.types) { m |= cd.mask; break; }
+      }
+    }
+    for (const r of x.L.restricted) {
+      if (freeOnly && r.life) continue;
+      if (r.kind === null || kind === null || r.kind === kind) m |= r.mask;
     }
     return m;
+  }
+
+  const ready = (x) => x.isLand ? true : turn >= x.readyTurn;
+
+  // Untapped sources for a spell of `kind`. includeTapped ignores mana already spent this
+  // turn (used for the "could you cast it" check, which only cares about what's in play).
+  function sourcesFor(kind, includeTapped) {
+    const masks = [], refs = [], penalty = [];
+    const add = (x) => {
+      if (!ready(x) || x.etbTapped || (!includeTapped && x.tapped)) return;
+      const m = srcMask(x, kind, false);
+      if (!m) return;
+      masks.push(m); refs.push(x);
+      // Avoid paying life, and keep Treasures for when nothing else will do.
+      penalty.push(x.isTreasure ? 2 : x.L.restricted.some((r) => r.life) ? 1 : 0);
+    };
+    for (const x of bf) add(x);
+    for (const x of perms) if (x.isSource) add(x);
+    return { masks, refs, penalty };
+  }
+
+  const isType = (typeLine, words) => words.some((w) => typeLine.includes(w));
+  // Whether the "behold a X" / "sacrifice an X" alternative to the extra mana is available.
+  function canSkipExtra(ex, d, skipPos) {
+    if (!ex.unlessType) return false;
+    const words = [].concat(ex.unlessType);
+    if (perms.some((p) => isType(p.typeLine, words))) return true;
+    return !!ex.fromHand && hand.some((ci, i) => i !== skipPos && defs[ci] !== d && isType((defs[ci].spell?.typeLine || '').toLowerCase(), words));
+  }
+
+  function effectiveCost(d, skipPos) {
+    const sp = d.spell;
+    const ex = sp.extraCost;
+    if (!ex || canSkipExtra(ex, d, skipPos)) return sp.cost;
+    return { ...sp.cost, generic: sp.cost.generic + ex.generic, pips: ex.pips?.length ? [...sp.cost.pips, ...ex.pips] : sp.cost.pips };
+  }
+
+  function makeTreasures(n) {
+    for (let k = 0; k < n; k++) {
+      perms.push({ typeLine: 'artifact — treasure', L: TREASURE, mask: ANY_COLOR, types: 0, isBasic: false, isLand: false, isSource: true, isTreasure: true, tapped: false, etbTapped: false, enteredTurn: turn, readyTurn: turn });
+    }
   }
 
   function entersTapped(L) {
@@ -85,14 +143,11 @@ export function simulate(model, opts = {}) {
       case 'check': return !bf.some((x) => x.types & L.etbTypes);
       case 'reveal': return !hand.some((ci) => defs[ci].land && (defs[ci].land.types & L.etbTypes));
       case 'multiplayer': return !fmt.multiplayer;
+      case 'earlyTurns': return turn > 3;
+      case 'lowLife': return turn < 5;
+      case 'controlPerm': return !perms.some((p) => L.etbPerm.split(' ').every((w) => p.typeLine.includes(w)));
       default: return true;
     }
-  }
-
-  function untappedSources() {
-    const out = [];
-    for (const x of bf) if (!x.tapped) out.push(landMask(x));
-    return out;
   }
 
   function drawCards(n) {
@@ -123,6 +178,7 @@ export function simulate(model, opts = {}) {
       if (!filter) return true;
       const d = defs[ci];
       if (landish[ci] && filter.includes('land')) return true;
+      if ((landish[ci] || d.spell?.isPermanent) && filter.includes('permanent')) return true;
       if (d.spell && d.spell.isCreature && filter.includes('creature')) return true;
       if (d.spell && !d.spell.isCreature && filter.includes('noncreature')) return true;
       return false;
@@ -155,19 +211,28 @@ export function simulate(model, opts = {}) {
     }
   }
 
+  function discardRandom(n) {
+    for (let k = 0; k < n && hand.length; k++) hand.splice(Math.floor(rng() * hand.length), 1);
+  }
+
   function resolve(e) {
     st.drawSpellsCast++;
     if (e.selectFirst) { if (e.scry) select(e.scry); if (e.surveil) select(e.surveil); }
-    if (e.look) dig(e.look, e.take, e.takeFilter);
+    const look = e.lookPerLand ? bf.length : e.look;
+    if (look) dig(look, e.take, e.takeFilter);
     drawCards(e.draw);
-    st.extraCards += e.draw + (e.look ? e.take : 0) - e.discard;
-    if (e.discard) discard(e.discard);
+    let discarded = e.discard;
+    // "Discard two cards unless you discard a creature card": pitch the priciest creature.
+    const creature = e.discardOrCreature ? hand.reduce((b, ci, i) => (defs[ci].spell?.isCreature && !landish[ci] && (b < 0 || defs[ci].spell.cmc > defs[hand[b]].spell.cmc) ? i : b), -1) : -1;
+    if (creature >= 0) { hand.splice(creature, 1); discarded = 1; } else if (e.discard) discard(e.discard);
+    st.extraCards += e.draw + (look ? e.take : 0) - discarded - (e.delayedDiscard || 0);
+    if (e.delayedDiscard) pendingDiscard += e.delayedDiscard;
     if (!e.selectFirst) { if (e.scry) select(e.scry); if (e.surveil) select(e.surveil); }
   }
 
   function bestFetchTarget(types) {
     const have = new Float64Array(64);
-    for (const x of bf) for (const c of COLOR_ORDER) if (landMask(x) & COLOR_BITS[c]) have[COLOR_BITS[c]]++;
+    for (const x of bf) for (const c of COLOR_ORDER) if (srcMask(x, null) & COLOR_BITS[c]) have[COLOR_BITS[c]]++;
     let best = -1, bestScore = -1;
     for (let k = 0; k < lib.length; k++) {
       const d = defs[lib[k]];
@@ -179,21 +244,33 @@ export function simulate(model, opts = {}) {
     return best;
   }
 
-  function maxCastable(sources, skipPos) {
+  // Biggest mana value in hand castable with `extra` (a would-be new source) added.
+  function maxCastable(extra, skipPos) {
     let best = 0;
+    const cache = {};
     for (let i = 0; i < hand.length; i++) {
       if (i === skipPos) continue;
       const d = defs[hand[i]];
-      if (!d.spell || d.spell.cmc <= best || d.spell.cmc > sources.length) continue;
-      if (payCost(sources, d.spell.cost)) best = d.spell.cmc;
+      if (!d.spell || d.spell.cmc <= best) continue;
+      const kind = d.spell.kind;
+      if (!cache[kind]) {
+        const s = sourcesFor(kind, false);
+        if (extra) { const m = srcMask(extra, kind, false); if (m) s.masks.push(m); }
+        cache[kind] = s.masks;
+      }
+      if (d.spell.cmc > cache[kind].length) continue;
+      if (payCost(cache[kind], effectiveCost(d, skipPos))) best = d.spell.cmc;
     }
     return best;
   }
 
+  function makeLandSource(L, mask, tapped, isBasic) {
+    return { L, mask, types: L.choiceSetsType ? mask : L.types, isBasic, isLand: true, tapped, etbTapped: tapped, enteredTurn: turn, readyTurn: 0, isSource: true };
+  }
+
   function chooseAndPlayLand() {
-    const current = untappedSources();
     let totalMask = 0;
-    for (const x of bf) totalMask |= landMask(x);
+    for (const x of bf) totalMask |= srcMask(x, null);
     let best = null, bestScore = -Infinity;
     for (let pos = 0; pos < hand.length; pos++) {
       const d = defs[hand[pos]];
@@ -201,12 +278,13 @@ export function simulate(model, opts = {}) {
       if (d.land) options.push({ L: d.land, mdfc: false });
       if (d.mdfcLand) options.push({ L: d.mdfcLand, mdfc: true });
       for (const { L, mdfc } of options) {
-        let tapped, masks;
+        let tapped, masks, fetchedL = null;
         if (L.fetch) {
           const k = bestFetchTarget(L.fetch.types);
           if (k < 0) continue;
-          masks = [defs[lib[k]].land.mask];
-          tapped = !(L.fetch.untapAt && bf.length + 1 >= L.fetch.untapAt);
+          fetchedL = defs[lib[k]].land;
+          masks = [fetchedL.mask];
+          tapped = !((L.fetch.untapAt && bf.length + 1 >= L.fetch.untapAt) || (L.fetch.untapIfBehold && controls(L.fetch.untapIfBehold)));
         } else {
           tapped = entersTapped(L);
           masks = (L.choices || [0]).map((c) => L.mask | c);
@@ -214,12 +292,13 @@ export function simulate(model, opts = {}) {
         // Shock-style lands: try both entering tapped for free and paying life.
         const tapOptions = L.etb === 'shock' ? [true, false] : [tapped];
         for (const m of masks) for (tapped of tapOptions) {
-          const after = tapped ? current : [...current, m];
-          const castNow = maxCastable(after, pos);
+          const probe = makeLandSource(fetchedL || L, m, tapped, fetchedL ? true : L.isBasic);
+          const castNow = maxCastable(tapped ? null : probe, pos);
+          const full = srcMask(probe, null);
           let gain = 0;
-          for (const c of COLOR_ORDER) if ((m & COLOR_BITS[c]) && !(totalMask & COLOR_BITS[c])) gain += demand[c] > 0 ? 1 : 0;
+          for (const c of COLOR_ORDER) if ((full & COLOR_BITS[c]) && !(totalMask & COLOR_BITS[c])) gain += demand[c] > 0 ? 1 : 0;
           let score = castNow * 100 + gain * 20 + (tapped ? 5 : 0) - (mdfc ? 60 : 0);
-          if (L.etb === 'fast' && !tapped) score += 3;
+          if ((L.etb === 'fast' || L.etb === 'earlyTurns') && !tapped) score += 3;
           if (L.etb === 'slow' && tapped) score -= 3;
           if (L.isBasic) score += 1; // keeps duals that care about basics happy later
           if (L.etb === 'shock' && !tapped) score -= 8;
@@ -228,7 +307,6 @@ export function simulate(model, opts = {}) {
       }
     }
     if (!best) return false;
-    const ci = hand[best.pos];
     hand.splice(best.pos, 1);
     if (best.mdfc) st.mdfcAsLand++;
     if (best.L.fetch) {
@@ -236,36 +314,74 @@ export function simulate(model, opts = {}) {
       const target = lib[k];
       lib.splice(k, 1);
       shuffle(lib, rng);
+      st.life += best.L.fetch.life;
       const bl = defs[target].land;
-      bf.push({ L: bl, mask: bl.mask, types: bl.types, isBasic: true, tapped: best.tapped, etbTapped: best.tapped });
+      bf.push(makeLandSource(bl, bl.mask, best.tapped, true));
       return true;
     }
-    bf.push({ L: best.L, mask: best.mask, types: best.L.types, isBasic: best.L.isBasic, tapped: best.tapped, etbTapped: best.tapped, ci });
+    bf.push(makeLandSource(best.L, best.mask, best.tapped, best.L.isBasic));
     if (best.L.etb === 'shock' && !best.tapped) st.life += best.L.shockLife;
     if (best.L.surveil) select(best.L.surveil);
     return true;
   }
 
+  // Life paid when `x` made mana for pip `pip` using a life-costing ability.
+  function lifeFor(x, pip, kind) {
+    if (srcMask(x, kind, true) & pip) return 0;
+    let cheapest = Infinity;
+    for (const r of x.L.restricted) if (r.life && (r.mask & pip) && (r.kind === null || r.kind === kind)) cheapest = Math.min(cheapest, r.life);
+    return cheapest === Infinity ? 0 : cheapest;
+  }
+
   function castOne(onlyDraw) {
-    const sources = untappedSources();
-    if (!sources.length) return 0;
-    let pick = -1, pickScore = -Infinity, pay = null;
+    const cache = {};
+    let pick = -1, pickScore = -Infinity, pay = null, pickSrc = null;
     for (let i = 0; i < hand.length; i++) {
       const d = defs[hand[i]];
-      if (!d.spell || d.spell.cmc > sources.length) continue;
+      if (!d.spell) continue;
       if (onlyDraw && !d.spell.effect) continue;
-      const score = onlyDraw ? -d.spell.cmc : d.spell.cmc * 10 + (d.spell.effect ? 0 : 1);
+      const kind = d.spell.kind;
+      const srcs = cache[kind] || (cache[kind] = sourcesFor(kind, false));
+      if (d.spell.cmc > srcs.masks.length) continue;
+      const score = onlyDraw ? -d.spell.cmc : d.spell.cmc * 10 + (d.spell.effect ? 0 : 1) + (d.spell.mana ? 5 : 0);
       if (score <= pickScore) continue;
-      const p = payCost(sources, d.spell.cost);
-      if (p) { pick = i; pickScore = score; pay = p; }
+      const p = payCost(srcs.masks, effectiveCost(d, i), srcs.penalty);
+      if (p) { pick = i; pickScore = score; pay = p; pickSrc = srcs; }
     }
     if (pick < 0) return 0;
-    // map source indices back to battlefield lands
-    const untapped = bf.filter((x) => !x.tapped);
-    for (const k of pay) { untapped[k].tapped = true; st.life += untapped[k].L.pain; }
     const d = defs[hand[pick]];
+    const sp = d.spell;
+    const sacrifice = sp.extraCost?.sacrifice && canSkipExtra(sp.extraCost, d, pick);
+    pay.forEach((k, n) => {
+      const x = pickSrc.refs[k];
+      x.tapped = true;
+      if (n < pay.pipFor.length) st.life += lifeFor(x, pay.pipFor[n], sp.kind);
+    });
     hand.splice(pick, 1);
-    if (d.spell.effect) resolve(d.spell.effect);
+    if (sacrifice) {
+      // Sacrificed instead of paying the extra mana: give up a spare Treasure or a non-mana permanent first.
+      const words = [].concat(sp.extraCost.unlessType);
+      const fits = perms.map((p, i) => [p, i]).filter(([p]) => isType(p.typeLine, words) && !(p.isTreasure && p.tapped));
+      const fit = fits.find(([p]) => p.isTreasure) || fits.find(([p]) => !p.isSource) || fits[0];
+      if (fit) perms.splice(fit[1], 1);
+    }
+    perms = perms.filter((x) => !(x.isTreasure && x.tapped)); // spent Treasures are gone
+    if (sp.isPermanent) {
+      const perm = { typeLine: (sp.typeLine || '').toLowerCase(), isSource: false, extraLand: sp.extraLandDrops || 0 };
+      if (sp.mana) {
+        Object.assign(perm, {
+          L: sp.mana, mask: sp.mana.mask, types: 0, isBasic: false, isLand: false, isSource: true,
+          tapped: false, etbTapped: false, enteredTurn: turn, readyTurn: sp.mana.sick ? turn + 1 : turn,
+        });
+      }
+      if (sp.treasure) {
+        perm.treasureUpkeep = sp.treasure.upkeep;
+        perm.treasureTurns = sp.treasure.later.map((k) => turn + k);
+      }
+      perms.push(perm);
+    }
+    if (sp.treasure) makeTreasures(sp.treasure.now);
+    if (sp.effect) resolve(sp.effect);
     return Math.max(d.spell.cmc, pay.length);
   }
 
@@ -321,12 +437,26 @@ export function simulate(model, opts = {}) {
     const onPlay = mode === 'both' ? g % 2 === 0 : mode === 'play';
     mulligan();
     bf = [];
+    perms = [];
+    pendingDiscard = 0;
     seenTurn.fill(0);
     let spentTotal = 0;
     for (turn = 1; turn <= turns; turn++) {
       for (const x of bf) { x.tapped = false; x.etbTapped = false; }
+      for (const x of perms) x.tapped = false;
+      // Treasures from upkeep triggers and Saga chapters.
+      for (const x of perms.slice()) {
+        if (x.treasureUpkeep) makeTreasures(x.treasureUpkeep);
+        if (x.treasureTurns) makeTreasures(x.treasureTurns.filter((t) => t === turn).length);
+      }
+      if (pendingDiscard) { discardRandom(pendingDiscard); pendingDiscard = 0; }
       if (!(onPlay && turn === 1)) drawCards(1);
-      let landPlayed = false;
+      let landsPlayed = 0;
+      const playLands = () => {
+        let drops = 1;
+        for (const x of perms) drops += x.extraLand || 0;
+        while (landsPlayed < drops && landsInHand() && chooseAndPlayLand()) landsPlayed++;
+      };
       let spent = 0;
       // No land in hand: try cheap draw spells first to find one.
       while (!landsInHand()) {
@@ -334,19 +464,22 @@ export function simulate(model, opts = {}) {
         if (!used) break;
         spent += used;
       }
-      if (landsInHand()) landPlayed = chooseAndPlayLand();
+      playLands();
 
       st.lands[turn] += bf.length;
       if (bf.length >= turn) st.hitDrop[turn]++;
-      // For each spell in hand whose mana value equals this turn: could we cast it now?
-      const allUntapped = [];
-      for (const x of bf) if (!x.etbTapped) allUntapped.push(landMask(x));
-      for (const ci of hand) {
+      // For each spell in hand whose mana value equals this turn: could we cast it now
+      // with what's in play (ignoring mana already spent on cantrips this turn)?
+      const allBy = {};
+      for (let i = 0; i < hand.length; i++) {
+        const ci = hand[i];
         const d = defs[ci];
-        if (!d.spell || d.spell.cmc !== turn || seenTurn[ci] === turn || !trackedSet[ci]) continue;
+        if (!d.spell || !trackedSet[ci] || curveTurn(d) !== turn || seenTurn[ci] === turn) continue;
         seenTurn[ci] = turn;
+        const kind = d.spell.kind;
+        const all = allBy[kind] || (allBy[kind] = sourcesFor(kind, true).masks);
         const enough = bf.length >= turn;
-        const ok = allUntapped.length >= turn && payCost(allUntapped, d.spell.cost) !== null;
+        const ok = payCost(all, effectiveCost(d, i)) !== null;
         st.inHand[ci]++;
         if (enough) st.enough[ci]++;
         if (ok) { st.onCurve[ci]++; if (enough) st.onCurveGivenEnough[ci]++; }
@@ -356,9 +489,7 @@ export function simulate(model, opts = {}) {
         const used = castOne(false);
         if (!used) break;
         spent += used;
-        if (!landPlayed && landsInHand()) {
-          landPlayed = chooseAndPlayLand();
-        }
+        playLands();
       }
       spentTotal += spent;
       st.spent[turn] += spentTotal;
@@ -371,13 +502,17 @@ export function simulate(model, opts = {}) {
   return summarize(st, defs, tracked, { wantLands, floodAt });
 }
 
+// Spells whose cost reduction we can't model would skew the on-curve average.
+const headlineWeight = (d) => (d.spell.costReduction ? 0 : d.count);
+
 // Copy-weighted average of per-spell rates from raw counts (arrays aligned with `tracked`).
 function weighted(defs, tracked, inHand, onCurve, enough, given) {
   let w = 0, s = 0, s2 = 0;
   tracked.forEach((i, k) => {
-    w += defs[i].count;
-    s += defs[i].count * (inHand[k] ? onCurve[k] / inHand[k] : 0);
-    s2 += defs[i].count * (enough[k] ? given[k] / enough[k] : 0);
+    const c = headlineWeight(defs[i]);
+    w += c;
+    s += c * (inHand[k] ? onCurve[k] / inHand[k] : 0);
+    s2 += c * (enough[k] ? given[k] / enough[k] : 0);
   });
   return { castOnCurve: w ? s / w : 0, colorConsistency: w ? s2 / w : 0 };
 }
@@ -408,8 +543,10 @@ function summarize(st, defs, tracked, extra) {
     return {
       name: defs[i].name,
       cmc: defs[i].spell.cmc,
+      curveTurn: defs[i].spell.curveTurn ?? defs[i].spell.cmc,
       copies: defs[i].count,
       isDraw: !!defs[i].spell.effect,
+      costReduction: !!defs[i].spell.costReduction,
       inHand: st.inHand[i] / g,
       // probabilities below are conditional on holding the spell on the turn equal to its mana value
       onCurve,
@@ -423,8 +560,9 @@ function summarize(st, defs, tracked, extra) {
   // Weighted averages. The independent-spells margin is only a fallback for tiny runs.
   let w = 0, s = 0, s2 = 0, v = 0, v2 = 0;
   for (const sp of spells) {
-    w += sp.copies; s += sp.copies * sp.onCurve; s2 += sp.copies * sp.onCurveGivenEnough;
-    v += (sp.copies * sp.onCurveMoe) ** 2; v2 += (sp.copies * sp.onCurveGivenEnoughMoe) ** 2;
+    const c = sp.costReduction ? 0 : sp.copies;
+    w += c; s += c * sp.onCurve; s2 += c * sp.onCurveGivenEnough;
+    v += (c * sp.onCurveMoe) ** 2; v2 += (c * sp.onCurveGivenEnoughMoe) ** 2;
   }
   const manaSpent = turnRows.length ? turnRows[turnRows.length - 1].manaSpent : 0;
   const spentVar = Math.max(0, st.spentSq / g - manaSpent * manaSpent);

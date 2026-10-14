@@ -1,4 +1,4 @@
-import { parseDecklist } from './lib/decklist.js';
+import { parseDecklist, cardKey } from './lib/decklist.js';
 import { fetchCollection, searchLands, trimCard } from './lib/scryfall.js';
 import { FORMATS } from './lib/formats.js';
 import { normalizeCard } from './lib/cards.js';
@@ -44,7 +44,7 @@ function saveCache(cache) {
 
 async function getCards(names) {
   const cache = loadCache();
-  const missing = names.filter((n) => !cache[n.toLowerCase()]);
+  const missing = names.filter((n) => !cache[cardKey(n)]);
   let notFound = [];
   if (missing.length) {
     setStatus(`Fetching ${missing.length} cards from Scryfall…`);
@@ -54,7 +54,7 @@ async function getCards(names) {
     saveCache(cache);
   }
   const map = new Map();
-  for (const n of names) if (cache[n.toLowerCase()]) map.set(n.toLowerCase(), cache[n.toLowerCase()]);
+  for (const n of names) if (cache[cardKey(n)]) map.set(cardKey(n), cache[cardKey(n)]);
   return { map, notFound };
 }
 
@@ -150,7 +150,8 @@ function render(r) {
     ${main.sim.spells.sort((a, b) => a.cmc - b.cmc || a.name.localeCompare(b.name)).map((s) => {
       const c = spellsCur.get(s.name);
       const colorFail = s.enoughLands * (1 - s.onCurveGivenEnough);
-      return `<tr><td>${esc(s.name)}${s.isDraw ? ' <span class="muted">(draw)</span>' : ''}</td><td class="n">${s.cmc}</td><td class="n">${s.copies}</td>
+      const tags = [s.isDraw && 'draw', s.costReduction && 'cost reduction not modelled, left out of the average', s.curveTurn !== s.cmc && `checked on turn ${s.curveTurn} for its extra cost`].filter(Boolean);
+      return `<tr><td>${esc(s.name)}${tags.length ? ` <span class="muted">(${tags.join('; ')})</span>` : ''}</td><td class="n">${s.cmc}</td><td class="n">${s.copies}</td>
         ${cur && sug ? `<td class="n ${cls(c ? c.onCurve : 0)}">${c ? pct(c.onCurve) : '–'}</td>` : ''}
         <td class="n ${cls(s.onCurve)}">${pct(s.onCurve)} ${pm(s.onCurveMoe, pts)}</td><td class="n">${pct(colorFail)}</td>
         <td><div class="bar"><span style="width:${(s.onCurve * 100).toFixed(0)}%"></span></div></td></tr>`;

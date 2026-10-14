@@ -62,14 +62,20 @@ function assignPips(sources, pips, order) {
     }
     return false;
   }
-  return go(0) ? picked : null;
+  if (!go(0)) return null;
+  picked.pipFor = sorted; // picked[k] pays the pip sorted[k]
+  return picked;
 }
 
 // Returns the indices of sources to tap to pay `cost`, or null if it can't be paid.
-// `sources` is an array of color masks, one per untapped mana source.
-export function payCost(sources, cost) {
+// `sources` is an array of color masks, one per untapped mana source. The result's
+// `pipFor` property gives, for its first entries, the colored pip each one paid.
+// `penalty` (optional, one number per source) makes the solver avoid some sources for
+// colored pips, e.g. lands whose colored mana costs life.
+export function payCost(sources, cost, penalty) {
   const tb = cost.twobrid.length;
-  const order = sources.map((_, i) => i).sort((a, b) => popcount(sources[a]) - popcount(sources[b]));
+  const weight = (i) => popcount(sources[i]) + (penalty ? penalty[i] * 8 : 0);
+  const order = sources.map((_, i) => i).sort((a, b) => weight(a) - weight(b));
   // Each twobrid pip is paid either with its color or with two generic.
   for (let combo = 0; combo < 1 << tb; combo++) {
     const pips = cost.pips.slice();

@@ -21,7 +21,8 @@ test('pays colored pips with the right sources', () => {
 test('saves flexible lands for generic mana when tapping', () => {
   const sources = [C.U | C.R, C.U, C.R];
   const used = payCost(sources, parseCost('{U}'));
-  assert.deepEqual(used, [1]);
+  assert.deepEqual([...used], [1]);
+  assert.deepEqual(used.pipFor, [C.U]);
 });
 
 test('twobrid pips can be paid with two generic', () => {

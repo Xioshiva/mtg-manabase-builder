@@ -1,11 +1,12 @@
 // Ties everything together: card data + parsed list -> recommendation + simulations.
-import { normalizeCard, basicLandDef, isBasicName, BASIC_BY_COLOR, describeEffect, landSummary } from './cards.js';
+import { normalizeCard, basicLandDef, isBasicName, BASIC_BY_COLOR, describeEffect, landSummary, landColors } from './cards.js';
 import { COLOR_ORDER, COLOR_BITS } from './mana.js';
 import { simulate, colorDemand } from './sim.js';
 import { deckStats, recommendLandCount, sourcesNeeded, countSources, splitBasics, ensureBasics } from './recommend.js';
 import { optimizeLands, landCountSweep, pickCandidates } from './optimize.js';
+import { cardKey } from './decklist.js';
 
-// parsed: output of parseDecklist; cardData: Map(lowercased name -> Scryfall card)
+// parsed: output of parseDecklist; cardData: Map(cardKey(name) -> Scryfall card)
 export function buildModel(parsed, cardData, format) {
   const cards = [];
   const unknown = [];
@@ -13,7 +14,7 @@ export function buildModel(parsed, cardData, format) {
   const warnings = [];
   const entries = [...parsed.main, ...(parsed.commander || [])];
   for (const { name, count } of entries) {
-    const sc = cardData.get(name.toLowerCase());
+    const sc = cardData.get(cardKey(name));
     if (!sc) {
       const basic = Object.entries(BASIC_BY_COLOR).find(([, n]) => n.toLowerCase() === name.toLowerCase());
       if (basic) { cards.push(basicLandDef(basic[0], count)); continue; }
@@ -42,9 +43,11 @@ export function deckColors(cards) {
 function landRows(cards) {
   return cards
     .filter((d) => d.land && d.count > 0)
-    .map((d) => ({ name: d.name, count: d.count, colors: COLOR_ORDER.filter((c) => {
-      const L = d.land; let m = L.mask; for (const x of L.cond) m |= x.mask; for (const ch of L.choices || []) m |= ch; if (L.fetch) m |= L.fetch.types; return m & COLOR_BITS[c];
-    }).join(''), how: landSummary(d.land), notes: d.notes }))
+    .map((d) => {
+      const m = landColors(d.land, { restricted: true });
+      const colors = [...COLOR_ORDER, 'C'].filter((c) => m & COLOR_BITS[c]).join('');
+      return { name: d.name, count: d.count, colors, how: landSummary(d.land), notes: d.notes };
+    })
     .sort((a, b) => b.count - a.count);
 }
 

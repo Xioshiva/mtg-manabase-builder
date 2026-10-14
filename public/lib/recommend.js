@@ -1,7 +1,7 @@
 // Starting-point recommendations: land count from Karsten's formula, and how many
 // sources of each color the spells need, from the hypergeometric distribution.
 import { COLOR_ORDER, COLOR_BITS, popcount } from './mana.js';
-import { basicLandDef } from './cards.js';
+import { basicLandDef, landColors } from './cards.js';
 
 export function deckStats(cards) {
   let spells = 0, cmcSum = 0, cheap = 0, mdfc = 0, lands = 0, nonLandMana = 0;
@@ -65,13 +65,8 @@ export function sourcesNeeded(format, landCount, cards, target = 0.9) {
 export function countSources(cards) {
   const have = { W: 0, U: 0, B: 0, R: 0, G: 0 };
   for (const d of cards) {
-    if (!d.count) continue;
-    const L = d.land;
-    if (!L) continue;
-    let m = L.mask;
-    for (const c of L.cond) m |= c.mask;
-    for (const ch of L.choices || []) m |= ch;
-    if (L.fetch) m |= L.fetch.types;
+    if (!d.count || !d.land) continue;
+    const m = landColors(d.land);
     for (const c of COLOR_ORDER) if (m & COLOR_BITS[c]) have[c] += d.count;
   }
   return have;

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseMtgtop8Url, fetchMtgtop8Deck } from '../public/lib/mtgtop8.js';
 import { recognizeDeckLink } from '../public/lib/importers.js';
-import { parseDecklist } from '../public/lib/decklist.js';
+import { parseDecklist, cardKey, indexCards } from '../public/lib/decklist.js';
 
 // Shape of a real MTGTop8 MTGO export (no "Deck" header, "Sideboard" line before the sideboard).
 const EXPORT = '4 Seasoned Cryomancer\r\n4 Watery Grave\r\n3 Swamp\r\nSideboard\r\n2 Negate\r\n';
@@ -31,4 +31,15 @@ test('fetches the MTGO export and parses it as a decklist', async () => {
   ]);
   await assert.rejects(fetchMtgtop8Deck({ id: '1' }, { fetchImpl: async () => ({ ok: true, status: 200, text: async () => '<html>error</html>' }) }), /not a decklist/);
   await assert.rejects(fetchMtgtop8Deck({ id: '1' }, { fetchImpl: async () => { throw new Error('x'); } }), /couldn't reach/);
+});
+
+test('matches MTGTop8 split names and names typed without accents', () => {
+  const parsed = parseDecklist('1 Unholy Annex/Ritual Chamber\n2 Fire // Ice\n1 Kili the Resourceful');
+  assert.deepEqual(parsed.main.map((c) => c.name), ['Unholy Annex', 'Fire', 'Kili the Resourceful']);
+  const index = indexCards([
+    { name: 'Unholy Annex // Ritual Chamber', card_faces: [{ name: 'Unholy Annex' }, { name: 'Ritual Chamber' }] },
+    { name: 'Kíli the Resourceful' },
+  ]);
+  assert.equal(index.get(cardKey('Unholy Annex')).name, 'Unholy Annex // Ritual Chamber');
+  assert.equal(index.get(cardKey('Kili the Resourceful')).name, 'Kíli the Resourceful');
 });
