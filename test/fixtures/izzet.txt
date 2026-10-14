@@ -1,0 +1,21 @@
+Deck
+4 Opt
+4 Consider
+2 Sleight of Hand
+2 Stock Up
+2 Quick Study
+4 Cloudkin Seer
+4 Shock
+4 Lightning Strike
+4 Slickshot Show-Off
+2 Glorybringer
+2 Izzet Charm
+2 Sink into Stupor
+8 Island
+6 Mountain
+4 Spirebluff Canal
+4 Thundering Falls
+2 Riverpyre Verge
+
+Sideboard
+2 Glorybringer

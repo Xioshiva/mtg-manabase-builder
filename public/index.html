@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manabase Builder</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Manabase Builder</h1>
+    <p class="sub">Paste a decklist. It suggests a land count and color split, then plays thousands of goldfish games (mulligans, land drops, cantrips and card draw) to check it.</p>
+  </header>
+  <main>
+    <section class="panel input">
+      <div class="import">
+        <label for="deckLink">Deck link <span class="hint">a public Moxfield or MTGTop8 deck, or paste the list below</span></label>
+        <div class="row">
+          <input id="deckLink" type="url" placeholder="https://moxfield.com/decks/… or https://www.mtgtop8.com/event?e=…&amp;d=…">
+          <button id="importLink" class="secondary">Import</button>
+        </div>
+      </div>
+      <label for="deck">Decklist <span class="hint">Arena or MTGO export, one card per line</span></label>
+      <textarea id="deck" spellcheck="false" placeholder="Deck&#10;4 Opt&#10;4 Lightning Strike&#10;...&#10;8 Island&#10;8 Mountain"></textarea>
+      <div class="controls">
+        <label>Format
+          <select id="format"></select>
+        </label>
+        <label>Mode
+          <select id="mode">
+            <option value="analyze">Check and improve my lands</option>
+            <option value="build">Build lands from scratch</option>
+          </select>
+        </label>
+        <label>Play / draw
+          <select id="play">
+            <option value="both">Both (half each)</option>
+            <option value="play">On the play</option>
+            <option value="draw">On the draw</option>
+          </select>
+        </label>
+        <label>Games
+          <select id="games">
+            <option value="2000">2,000 (quick look)</option>
+            <option value="10000" selected>10,000</option>
+            <option value="50000">50,000 (most precise)</option>
+          </select>
+        </label>
+        <label>Land count
+          <input id="landCount" type="number" min="10" max="50" placeholder="auto">
+        </label>
+        <label class="check"><input id="optimize" type="checkbox" checked> Search for a better manabase</label>
+      </div>
+      <div class="actions">
+        <button id="run">Analyze</button>
+        <button id="sample" class="secondary">Load sample deck</button>
+        <span id="status" role="status"></span>
+      </div>
+    </section>
+    <section id="results"></section>
+  </main>
+  <footer>Card data from <a href="https://scryfall.com" target="_blank" rel="noopener">Scryfall</a>. Not affiliated with Wizards of the Coast.</footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

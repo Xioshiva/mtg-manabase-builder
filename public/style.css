@@ -1,0 +1,58 @@
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --text: #1d1d1f; --muted: #6b6b70; --border: #e2e0da;
+  --accent: #3b5bdb; --good: #2b8a3e; --warn: #c27c0e; --bad: #c92a2a;
+  --W: #f3e9c6; --U: #a9cdee; --B: #b9b0ae; --R: #f0a68e; --G: #9fd3a8; --C: #d6d6d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #151517; --panel: #1f1f23; --text: #ececf0; --muted: #9a9aa3; --border: #34343a; --accent: #7b96ff;
+    --good: #69db7c; --warn: #ffc94d; --bad: #ff8787;
+    --W: #6b6247; --U: #2d4f73; --B: #4a4545; --R: #7a3e2c; --G: #2f5e3a; --C: #4a4a4a; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.5 system-ui, -apple-system, Segoe UI, sans-serif; background: var(--bg); color: var(--text); }
+header, main, footer { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+header { padding-top: 24px; }
+h1 { margin: 0 0 4px; font-size: 26px; }
+h2 { font-size: 18px; margin: 0 0 12px; }
+h3 { font-size: 15px; margin: 16px 0 8px; }
+.sub, .hint, footer, .muted { color: var(--muted); }
+.hint { font-weight: normal; font-size: 13px; margin-left: 6px; }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin: 16px 0; }
+textarea { width: 100%; min-height: 220px; font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; padding: 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text); resize: vertical; }
+label { display: block; font-weight: 600; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-top: 12px; align-items: end; }
+.controls label { font-size: 13px; }
+.controls label.check { display: flex; gap: 6px; align-items: center; font-weight: normal; }
+select, input[type=number] { display: block; margin-top: 4px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; }
+input[type=number] { width: 90px; }
+.import { margin-bottom: 14px; }
+.import .row { display: flex; gap: 8px; margin-top: 4px; }
+.import input { flex: 1; min-width: 0; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; }
+.actions { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+button { font: inherit; font-weight: 600; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+button.secondary { background: transparent; color: var(--accent); }
+button:disabled { opacity: .5; cursor: wait; }
+#status { color: var(--muted); font-size: 14px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 8px; }
+.kpi { border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+.kpi .v { font-size: 22px; font-weight: 700; }
+.kpi .l { font-size: 12px; color: var(--muted); }
+.kpi .d { font-size: 12px; }
+.moe { font-size: 12px; font-weight: 400; color: var(--muted); }
+.up { color: var(--good); } .down { color: var(--bad); }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+.pip { display: inline-block; min-width: 18px; padding: 0 4px; margin-right: 2px; border-radius: 9px; font-size: 11px; font-weight: 700; text-align: center; background: var(--C); color: var(--text); }
+.pip.W { background: var(--W); } .pip.U { background: var(--U); } .pip.B { background: var(--B); } .pip.R { background: var(--R); } .pip.G { background: var(--G); }
+.ok { color: var(--good); } .meh { color: var(--warn); } .bad { color: var(--bad); }
+.notes li { margin-bottom: 4px; }
+.landlist { font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre; background: var(--bg); padding: 10px; border-radius: 8px; border: 1px solid var(--border); overflow-x: auto; }
+.bar { height: 6px; border-radius: 3px; background: var(--border); position: relative; min-width: 60px; }
+.bar > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); }
+footer { padding: 24px 16px 40px; font-size: 13px; }
+a { color: var(--accent); }

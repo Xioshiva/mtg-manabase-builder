@@ -1,0 +1,12 @@
+{
+  "name": "manabase-builder",
+  "version": "0.1.0",
+  "description": "Recommends Magic: The Gathering manabases and checks them with a goldfish game simulator.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=18" }
+}

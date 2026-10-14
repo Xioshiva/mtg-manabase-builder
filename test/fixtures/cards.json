@@ -1,0 +1,500 @@
+[
+ {
+  "object": "card",
+  "name": "Opt",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1,
+  "type_line": "Instant",
+  "oracle_text": "Scry 1.\nDraw a card.",
+  "color_identity": [
+   "U"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  }
+ },
+ {
+  "object": "card",
+  "name": "Consider",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1,
+  "type_line": "Instant",
+  "oracle_text": "Surveil 1.\nDraw a card.",
+  "color_identity": [
+   "U"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  }
+ },
+ {
+  "object": "card",
+  "name": "Sleight of Hand",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1,
+  "type_line": "Sorcery",
+  "oracle_text": "Look at the top two cards of your library. Put one of them into your hand and the other on the bottom of your library.",
+  "color_identity": [
+   "U"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  }
+ },
+ {
+  "object": "card",
+  "name": "Stock Up",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3,
+  "type_line": "Sorcery",
+  "oracle_text": "Look at the top five cards of your library. Put two of them into your hand and the rest on the bottom of your library in any order.",
+  "color_identity": [
+   "U"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  }
+ },
+ {
+  "object": "card",
+  "name": "Quick Study",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3,
+  "type_line": "Instant",
+  "oracle_text": "Draw two cards.",
+  "color_identity": [
+   "U"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  }
+ },
+ {
+  "object": "card",
+  "name": "Cloudkin Seer",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3,
+  "type_line": "Creature \u2014 Elemental Wizard",
+  "oracle_text": "Flying\nWhen Cloudkin Seer enters, draw a card.",
+  "color_identity": [
+   "U"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  }
+ },
+ {
+  "object": "card",
+  "name": "Shock",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1,
+  "type_line": "Instant",
+  "oracle_text": "Shock deals 2 damage to any target.",
+  "color_identity": [
+   "R"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  }
+ },
+ {
+  "object": "card",
+  "name": "Lightning Strike",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2,
+  "type_line": "Instant",
+  "oracle_text": "Lightning Strike deals 3 damage to any target.",
+  "color_identity": [
+   "R"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  }
+ },
+ {
+  "object": "card",
+  "name": "Slickshot Show-Off",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2,
+  "type_line": "Creature \u2014 Bird Wizard",
+  "oracle_text": "Flying, haste\nWhenever you cast a noncreature spell, Slickshot Show-Off gets +2/+0 until end of turn.\nPlot {1}{R}",
+  "color_identity": [
+   "R"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  }
+ },
+ {
+  "object": "card",
+  "name": "Glorybringer",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5,
+  "type_line": "Creature \u2014 Dragon",
+  "oracle_text": "Flying, haste\nYou may exert Glorybringer as it attacks.",
+  "color_identity": [
+   "R"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  }
+ },
+ {
+  "object": "card",
+  "name": "Izzet Charm",
+  "layout": "normal",
+  "mana_cost": "{U}{R}",
+  "cmc": 2,
+  "type_line": "Instant",
+  "oracle_text": "Choose one \u2014\n\u2022 Counter target noncreature spell unless its controller pays {2}.\n\u2022 Izzet Charm deals 2 damage to target creature.\n\u2022 Draw two cards, then discard two cards.",
+  "color_identity": [
+   "U",
+   "R"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  }
+ },
+ {
+  "object": "card",
+  "name": "Llanowar Elves",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1,
+  "type_line": "Creature \u2014 Elf Druid",
+  "oracle_text": "{T}: Add {G}.",
+  "color_identity": [
+   "G"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  }
+ },
+ {
+  "object": "card",
+  "name": "Sink into Stupor // Soporific Springs",
+  "layout": "modal_dfc",
+  "cmc": 3,
+  "color_identity": [
+   "U"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  },
+  "card_faces": [
+   {
+    "name": "Sink into Stupor",
+    "mana_cost": "{1}{U}{U}",
+    "type_line": "Instant",
+    "oracle_text": "Return target spell or nonland permanent an opponent controls to its owner's hand."
+   },
+   {
+    "name": "Soporific Springs",
+    "mana_cost": "",
+    "type_line": "Land",
+    "oracle_text": "As Soporific Springs enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {U}."
+   }
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Island",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0,
+  "type_line": "Basic Land \u2014 Island",
+  "oracle_text": "({T}: Add {U}.)",
+  "color_identity": [],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  },
+  "produced_mana": [
+   "U"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Mountain",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0,
+  "type_line": "Basic Land \u2014 Mountain",
+  "oracle_text": "({T}: Add {R}.)",
+  "color_identity": [],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  },
+  "produced_mana": [
+   "R"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Spirebluff Canal",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0,
+  "type_line": "Land",
+  "oracle_text": "Spirebluff Canal enters tapped unless you control two or fewer other lands.\n{T}: Add {U} or {R}.",
+  "color_identity": [
+   "U",
+   "R"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  },
+  "produced_mana": [
+   "U",
+   "R"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Thundering Falls",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0,
+  "type_line": "Land \u2014 Island Mountain",
+  "oracle_text": "({T}: Add {U} or {R}.)\nThundering Falls enters tapped.\nWhen Thundering Falls enters, surveil 1.",
+  "color_identity": [
+   "U",
+   "R"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  },
+  "produced_mana": [
+   "U",
+   "R"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Riverpyre Verge",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0,
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {U}.\n{T}: Add {R}. Activate only if you control an Island or a Mountain.",
+  "color_identity": [
+   "U",
+   "R"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  },
+  "produced_mana": [
+   "U",
+   "R"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Thriving Isle",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0,
+  "type_line": "Land",
+  "oracle_text": "Thriving Isle enters tapped. As it enters, choose a color other than blue.\n{T}: Add {U} or one mana of the chosen color.",
+  "color_identity": [
+   "U"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  },
+  "produced_mana": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Shivan Reef",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0,
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add {U} or {R}. Shivan Reef deals 1 damage to you.",
+  "color_identity": [
+   "U",
+   "R"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  },
+  "produced_mana": [
+   "C",
+   "U",
+   "R"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Fabled Passage",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0,
+  "type_line": "Land",
+  "oracle_text": "{T}, Sacrifice Fabled Passage: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle. Then if you control four or more lands, untap that land.",
+  "color_identity": [],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  }
+ },
+ {
+  "object": "card",
+  "name": "Sulfur Falls",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0,
+  "type_line": "Land",
+  "oracle_text": "Sulfur Falls enters tapped unless you control an Island or a Mountain.\n{T}: Add {U} or {R}.",
+  "color_identity": [
+   "U",
+   "R"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  },
+  "produced_mana": [
+   "U",
+   "R"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Steam Vents",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0,
+  "type_line": "Land \u2014 Island Mountain",
+  "oracle_text": "({T}: Add {U} or {R}.)\nAs Steam Vents enters, you may pay 2 life. If you don't, it enters tapped.",
+  "color_identity": [
+   "U",
+   "R"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  },
+  "produced_mana": [
+   "U",
+   "R"
+  ]
+ },
+ {
+  "object": "card",
+  "name": "Riverglide Pathway // Lavaglide Pathway",
+  "layout": "modal_dfc",
+  "cmc": 0,
+  "color_identity": [
+   "U",
+   "R"
+  ],
+  "legalities": {
+   "standard": "legal",
+   "pioneer": "legal",
+   "modern": "legal",
+   "commander": "legal"
+  },
+  "produced_mana": [
+   "U",
+   "R"
+  ],
+  "card_faces": [
+   {
+    "name": "Riverglide Pathway",
+    "mana_cost": "",
+    "type_line": "Land",
+    "oracle_text": "{T}: Add {U}."
+   },
+   {
+    "name": "Lavaglide Pathway",
+    "mana_cost": "",
+    "type_line": "Land",
+    "oracle_text": "{T}: Add {R}."
+   }
+  ]
+ }
+]
