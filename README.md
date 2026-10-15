@@ -101,5 +101,6 @@ public/lib/analysis.js   puts it all together
 public/lib/formats.js    format rules (add new formats here)
 public/app.js, worker.js the web page (simulation runs in a Web Worker)
 cli.js, server.js        command line tool and static server
+static-file.js           maps page addresses to files for server.js
 scripts/                 real-deck report and card reading checker
 ```
