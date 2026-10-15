@@ -10,6 +10,12 @@ Paste a Magic: The Gathering decklist, or a Moxfield or MTGTop8 deck link, and t
 
 Standard is the main target. Pioneer, Modern and Commander are included as previews (see `public/lib/formats.js`).
 
+## Use it online
+
+Open https://xioshiva.github.io/mtg-manabase-builder/ and paste a decklist. Everything runs in your browser. Deck links need the local server described below, so on the online copy, export the list from Moxfield or MTGTop8 and paste it instead.
+
+Every push to `main` runs the tests and, if they pass, publishes `public/` to GitHub Pages (`.github/workflows/pages.yml`).
+
 ## Run it
 
 You need Node 18 or newer. There are no dependencies to install.

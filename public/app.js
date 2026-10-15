@@ -235,8 +235,10 @@ async function importLink() {
   $('importLink').disabled = true;
   setStatus(`Importing from ${known.site}…`);
   try {
-    const res = await fetch(`/api/deck?url=${encodeURIComponent(link)}`);
-    const body = await res.json().catch(() => ({}));
+    const res = await fetch(`api/deck?url=${encodeURIComponent(link)}`);
+    const body = await res.json().catch(() => null);
+    // A static copy of the page (GitHub Pages) has no server to fetch decks through.
+    if (!body) throw new Error('deck links only work when you run the app yourself with node server.js');
     if (!res.ok) throw new Error(body.error || `server returned ${res.status}`);
     $('deck').value = body.text;
     if (body.format && FORMATS[body.format]) $('format').value = body.format;
