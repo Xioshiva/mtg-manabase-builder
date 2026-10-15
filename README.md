@@ -28,9 +28,10 @@ Once a deck is loaded, the Cards tab shows every card with its picture, grouped 
 
 - **+ and −** change the number of copies. The text list stays in step, so you can switch between Cards and Text at any time.
 - **Add a card by name** with the box above the cards. Names autocomplete from Scryfall.
-- **🔓 on a land** locks it. The search never swaps a locked land, in either mode. Click 🔒 to unlock it.
+- **🔓 on a land** locks it. The search never swaps a locked land, in either mode. Click 🔒 to unlock it. When you set a land count, the unlocked lands grow or shrink to meet it; if every land is locked, the results say the count couldn't change.
 - **Dual lands legal in the format** for your colors are listed under your lands, best first, with + to add one. The list comes from Scryfall's legality data for the format you pick, so it changes when you switch formats. When a color is short of sources, the results also name the duals that would help.
-- **Use these lands in my list**, under the suggested manabase, swaps your lands for the suggested ones.
+- **Use these lands in my list**, under the suggested manabase, swaps your lands for the suggested ones. It asks first if you changed the deck after the analysis.
+- **Sideboard, Companion and Maybeboard** sections from your list are shown under the main deck and kept when the list is rewritten. Only the main deck (and commander) is simulated.
 - **Save** keeps the deck, its format and its locked lands in this browser under the name you give it. Open it again from the Saved decks menu. **Download .txt** saves the list as a file.
 
 Command line version:

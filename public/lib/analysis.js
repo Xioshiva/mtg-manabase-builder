@@ -99,7 +99,7 @@ export async function runAnalysis({ model, mode = 'analyze', candidateCards = []
 
   const currentLands = cards.reduce((a, d) => a + (d.land ? d.count : 0), 0);
   let landCount = landOverride || (mode === 'build' || currentLands === 0 ? rec.count : currentLands);
-  const need = sourcesNeeded(format, landCount, cards);
+  let need = sourcesNeeded(format, landCount, cards);
 
   let current = null;
   const userCards = cards.map((d) => ({ ...d }));
@@ -145,6 +145,38 @@ export async function runAnalysis({ model, mode = 'analyze', candidateCards = []
     for (let k = 0; k < -delta; k++) {
       const b = cards.filter((d) => d.basicColor && d.count > 0 && !d.locked).sort((x, y) => y.count - x.count)[0];
       if (b) b.count--;
+    }
+  }
+
+  // Locked basics can leave no basic to take the remaining slots (or to cut): use the
+  // other unlocked lands, the deck's own first, and say so if even that falls short.
+  const landTotal = () => cards.reduce((a, d) => a + (d.land ? d.count : 0), 0);
+  let off = landCount - landTotal();
+  if (off !== 0) {
+    const own = new Map(model.cards.filter((d) => d.land).map((d) => [d.name, d.count]));
+    const rank = new Map(pickCandidates(cards, colors, cards.length).map((i, k) => [i, k]));
+    const usable = cards.map((d, i) => i).filter((i) => {
+      const d = cards[i];
+      return d.land && !d.locked && (own.get(d.name) > 0 || rank.has(i) || (d.basicColor && colors.includes(d.basicColor)));
+    });
+    usable.sort((a, b) => (own.get(cards[b].name) || 0) - (own.get(cards[a].name) || 0) || (rank.get(a) ?? 1e9) - (rank.get(b) ?? 1e9));
+    const cap = (d) => (d.land.isBasic ? Infinity : format.maxCopies);
+    while (off > 0) {
+      const i = usable.find((j) => cards[j].count < cap(cards[j]));
+      if (i === undefined) break;
+      cards[i].count++; off--;
+    }
+    while (off < 0) {
+      const i = usable.filter((j) => cards[j].count > 0).sort((a, b) => cards[b].count - cards[a].count)[0];
+      if (i === undefined) break;
+      cards[i].count--; off++;
+    }
+    if (off !== 0) {
+      notes.push(off < 0
+        ? `Your locked lands add up to ${landTotal()} lands, more than the ${landCount} asked for. Unlock one to play fewer.`
+        : `Only ${landTotal()} lands fit around your locked lands, not ${landCount}. Unlock one to play more.`);
+      landCount = landTotal();
+      need = sourcesNeeded(format, landCount, cards);
     }
   }
 

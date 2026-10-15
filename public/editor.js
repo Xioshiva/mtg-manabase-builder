@@ -33,12 +33,12 @@ export function isLandCard(sc) {
   try { return !!normalizeCard(sc, 1).land; } catch { return false; }
 }
 
-function tile(entry, section, sc, locked) {
+function tile(entry, section, sc, locked, missing) {
   const img = sc && cardImage(sc, 'normal');
   const land = section === 'main' && isLandCard(sc);
   const key = esc(entry.name);
   return `<div class="tile${locked ? ' locked' : ''}" data-name="${key}" data-section="${section}">
-    <div class="art">${img ? `<img src="${esc(img)}" alt="${key}" loading="lazy" width="146" height="204">` : `<div class="noimg">${key}${sc ? '' : '<br><span class="muted">not found on Scryfall</span>'}</div>`}
+    <div class="art">${img ? `<img src="${esc(img)}" alt="${key}" loading="lazy" width="146" height="204">` : `<div class="noimg">${key}${missing ? '<br><span class="muted">not found on Scryfall</span>' : ''}</div>`}
       <span class="count">${entry.count}</span>
       ${land ? `<button class="lock" data-act="lock" aria-pressed="${locked}" title="${locked ? 'Locked: the search keeps this land as it is. Click to unlock.' : 'Lock this land so the search never swaps it.'}">${locked ? '🔒' : '🔓'}</button>` : ''}
     </div>
@@ -46,25 +46,33 @@ function tile(entry, section, sc, locked) {
   </div>`;
 }
 
-function section(title, entries, sectionName, cards, locks) {
+function section(title, entries, sectionName, cards, locks, notFound) {
   if (!entries.length) return '';
   const n = entries.reduce((a, e) => a + e.count, 0);
   return `<h3>${esc(title)} <span class="muted">(${n})</span></h3><div class="tiles">${entries
-    .map((e) => tile(e, sectionName, cards.get(cardKey(e.name)), locks.has(cardKey(e.name))))
+    .map((e) => {
+      const k = cardKey(e.name);
+      return tile(e, sectionName, cards.get(k), sectionName === 'main' && locks.has(k), notFound.has(k));
+    })
     .join('')}</div>`;
 }
 
-// deck: {main, commander, sideboard}; cards: Map(cardKey -> Scryfall card); locks: Set of cardKey.
-// landOptions: entries from lands.js for the deck's colors, or null while loading.
-export function renderEditor(el, { deck, cards, locks, formatName, landOptions, showAllLands, landsOpen = true }) {
+// deck: {commander, companion, main, sideboard, maybeboard}; cards: Map(cardKey -> Scryfall card);
+// locks: Set of cardKey (only lands in the main deck show as locked); notFound: Set of cardKey
+// Scryfall doesn't know. landOptions: entries from lands.js for the deck's colors, or null while loading.
+export function renderEditor(el, { deck, cards, locks, notFound = new Set(), formatName, landOptions, showAllLands, landsOpen = true }) {
   const groups = new Map(GROUPS.map((g) => [g, []]));
   for (const e of deck.main) groups.get(groupOf(cards.get(cardKey(e.name)))).push(e);
   const total = deck.main.reduce((a, e) => a + e.count, 0);
   const lands = groups.get('Lands').reduce((a, e) => a + e.count, 0);
-  const html = [`<p class="summary"><b>${total}</b> cards · <b>${lands}</b> lands · <b>${total - lands}</b> spells${deck.sideboard?.length ? ` · ${deck.sideboard.reduce((a, e) => a + e.count, 0)} in the sideboard` : ''}${locks.size ? ` · 🔒 ${locks.size} locked` : ''}</p>`];
-  html.push(section('Commander', deck.commander || [], 'commander', cards, locks));
-  for (const g of GROUPS) html.push(section(g, groups.get(g), 'main', cards, locks));
-  html.push(section('Sideboard', deck.sideboard || [], 'sideboard', cards, locks));
+  const locked = deck.main.filter((e) => locks.has(cardKey(e.name)) && isLandCard(cards.get(cardKey(e.name)))).length;
+  const side = (deck.sideboard || []).reduce((a, e) => a + e.count, 0);
+  const html = [`<p class="summary"><b>${total}</b> cards · <b>${lands}</b> lands · <b>${total - lands}</b> spells${side ? ` · ${side} in the sideboard` : ''}${locked ? ` · 🔒 ${locked} locked` : ''}</p>`];
+  html.push(section('Commander', deck.commander || [], 'commander', cards, locks, notFound));
+  html.push(section('Companion', deck.companion || [], 'companion', cards, locks, notFound));
+  for (const g of GROUPS) html.push(section(g, groups.get(g), 'main', cards, locks, notFound));
+  html.push(section('Sideboard', deck.sideboard || [], 'sideboard', cards, locks, notFound));
+  html.push(section('Maybeboard', deck.maybeboard || [], 'maybeboard', cards, locks, notFound));
 
   if (landOptions === null) html.push('<h3>Dual lands</h3><p class="muted">Looking up the lands legal in ' + esc(formatName) + '…</p>');
   else if (landOptions && landOptions.length) {
@@ -73,7 +81,7 @@ export function renderEditor(el, { deck, cards, locks, formatName, landOptions, 
     html.push(`<details class="duals"${landsOpen ? ' open' : ''}><summary><h3>Dual lands legal in ${esc(formatName)} for your colors <span class="muted">(${landOptions.length})</span></h3></summary>
       <p class="hint tip">Best first. A green frame means the deck already plays it; + adds a copy.</p>
       <div class="tiles small">${shown.map((o) => {
-        const have = inDeck.get(cardKey(o.name)) || 0;
+        const have = inDeck.get(cardKey(o.name.split(' // ')[0])) || 0;
         const img = cardImage(o.card, 'normal');
         return `<div class="tile option${have ? ' have' : ''}" data-name="${esc(o.name)}">
           <div class="art">${img ? `<img src="${esc(img)}" alt="${esc(o.name)}" loading="lazy" width="146" height="204">` : `<div class="noimg">${esc(o.name)}</div>`}

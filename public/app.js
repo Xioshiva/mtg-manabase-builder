@@ -47,21 +47,37 @@ function saveCache(cache) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch {}
 }
 
+// Names Scryfall didn't know this visit, so they aren't asked for again (cardKey).
+const notOnScryfall = new Set();
+
 async function getCards(names) {
-  const cache = loadCache();
-  const missing = [...new Set(names.filter((n) => !cache[cardKey(n)]))];
-  let notFound = [];
+  let cache = loadCache();
+  const missing = [...new Set(names.filter((n) => !cache[cardKey(n)] && !notOnScryfall.has(cardKey(n))))];
   if (missing.length) {
-    setStatus(`Fetching ${missing.length} card${missing.length === 1 ? '' : 's'} from Scryfall…`);
-    const res = await fetchCollection(missing);
-    for (const [k, c] of res.cards) cache[k] = trimCard(c);
-    notFound = res.notFound;
-    saveCache(cache);
-    setStatus('');
+    const msg = `Fetching ${missing.length} card${missing.length === 1 ? '' : 's'} from Scryfall…`;
+    setStatus(msg);
+    try {
+      const res = await fetchCollection(missing);
+      // Re-read: another lookup may have saved cards while this one waited.
+      cache = loadCache();
+      for (const [k, c] of res.cards) cache[k] = trimCard(c);
+      for (const n of res.notFound) notOnScryfall.add(cardKey(n));
+      saveCache(cache);
+    } finally {
+      if ($('status').textContent === msg) setStatus('');
+    }
   }
   const map = new Map();
   for (const n of names) if (cache[cardKey(n)]) map.set(cardKey(n), cache[cardKey(n)]);
-  return { map, notFound };
+  return { map, notFound: names.filter((n) => notOnScryfall.has(cardKey(n))) };
+}
+
+// The cards this browser already has, without asking Scryfall.
+function cachedCards(names) {
+  const cache = loadCache();
+  const map = new Map();
+  for (const n of names) if (cache[cardKey(n)]) map.set(cardKey(n), cache[cardKey(n)]);
+  return map;
 }
 
 // Saves Scryfall cards we already have (the legal land search) so adding one needs no lookup.
@@ -152,13 +168,20 @@ function shortHints(r) {
   if (!yours || !options || !options.length) return '';
   const inDeck = new Set(state.deck.main.map((e) => cardKey(e.name)));
   const lines = r.colors.filter((c) => yours[c] < r.sourcesNeeded.need[c]).map((c) => {
-    const picks = landsForColor(options, c).filter((o) => !inDeck.has(cardKey(o.name))).slice(0, 4);
+    const picks = landsForColor(options, c).filter((o) => !inDeck.has(cardKey(o.name.split(' // ')[0]))).slice(0, 4);
     return picks.length ? `<li>Short on ${pips(c)} (${yours[c]} of ${r.sourcesNeeded.need[c]}): ${picks.map((o) => `${esc(o.name)} ${pips(o.colors)}`).join(', ')}</li>` : '';
   }).filter(Boolean);
   return lines.length ? `<h3>Dual lands that would help</h3><ul class="notes">${lines.join('')}</ul><p class="muted">All legal in ${esc(r.format)}. Add them from the card view with +.</p>` : '';
 }
 
 let lastResult = null;
+function clearResults() {
+  lastResult = null;
+  $('results').innerHTML = '';
+}
+// What an analysis depends on, to tell whether the deck changed after it.
+const analyzedKey = (format, main) => [format, ...main.map((e) => `${e.count} ${cardKey(e.name)}`).sort()].join('\n');
+
 function render(r) {
   lastResult = r;
   const cur = r.current, sug = r.suggested;
@@ -253,6 +276,7 @@ function startPool() {
 let pool = null;
 let runId = 0; // a newer run makes an older one's results stale
 async function run() {
+  flushTyping();
   const text = $('deck').value;
   const id = ++runId;
   saveWorkingDeck();
@@ -285,7 +309,7 @@ async function run() {
       onProgress: (p) => { if (id === runId) setStatus(`${p.stage}${p.iter ? ` (step ${p.iter})` : ''} on ${threads}…`); },
     });
     if (id !== runId) return;
-    render({ ...result, unknown: built.unknown, illegal: built.illegal, warnings: built.warnings });
+    render({ ...result, unknown: built.unknown, illegal: built.illegal, warnings: built.warnings, analyzed: analyzedKey(format.id, parsed.main) });
     setStatus('Done.');
   } catch (err) {
     if (id !== runId) return;
@@ -311,7 +335,7 @@ async function importLink() {
     if (!res.ok) throw new Error(body.error || `server returned ${res.status}`);
     if (body.format && FORMATS[body.format]) $('format').value = body.format;
     state.locks.clear();
-    $('deckName').value = body.name || '';
+    startNewDeck(body.name || '');
     setDeckText(body.text);
     showView('cards');
     setStatus(`Imported ${body.name || 'deck'} from ${known.site}.`);
@@ -326,7 +350,12 @@ async function importLink() {
 $('importLink').addEventListener('click', importLink);
 $('deckLink').addEventListener('keydown', (e) => { if (e.key === 'Enter') importLink(); });
 $('run').addEventListener('click', run);
-$('sample').addEventListener('click', () => { state.locks.clear(); setDeckText(SAMPLE); showView('cards'); });
+$('sample').addEventListener('click', () => {
+  state.locks.clear();
+  startNewDeck('');
+  setDeckText(SAMPLE);
+  showView('cards');
+});
 
 // ---- Deck editor: the text box and the card view show the same deck. ----
 
@@ -340,6 +369,25 @@ const state = {
 };
 const store = createDeckStore();
 let refreshId = 0;
+let openedName = null; // the saved deck now in the editor, if any
+let typing = null; // pending update from the text box
+
+// A deck that didn't come from the saved list: forget the old results and saved name.
+function startNewDeck(name) {
+  clearResults();
+  openedName = null;
+  $('deckName').value = name;
+  $('savedDecks').value = '';
+  $('deleteDeck').disabled = true;
+}
+
+// Applies what was typed in the text box right away instead of after the pause.
+function flushTyping() {
+  if (typing === null) return;
+  clearTimeout(typing);
+  typing = null;
+  setDeckText($('deck').value);
+}
 
 function saveWorkingDeck() {
   try {
@@ -351,25 +399,29 @@ function saveWorkingDeck() {
 
 function drawEditor() {
   renderEditor($('editor'), {
-    deck: state.deck, cards: state.cards, locks: state.locks, formatName: FORMATS[$('format').value].name,
+    deck: state.deck, cards: state.cards, locks: state.locks, notFound: notOnScryfall, formatName: FORMATS[$('format').value].name,
     landOptions: state.lands.options, showAllLands: state.showAllLands, landsOpen: state.landsOpen,
   });
 }
 
 // Fetches card data (and images) for anything new, then the legal duals for the deck's colors.
+// Locks stay set when a land leaves the deck, so taking the last copy out and putting
+// it back keeps the lock; only locked lands still in the main deck are used.
 async function refresh() {
   const id = ++refreshId;
   const d = state.deck;
-  const names = [...d.main, ...d.commander, ...(d.sideboard || [])].map((e) => e.name);
+  const names = ['commander', 'companion', 'main', 'sideboard', 'maybeboard'].flatMap((s) => d[s] || []).map((e) => e.name);
+  // Draw at once from what this browser already has; new cards appear after the lookup.
+  state.cards = cachedCards(names);
+  drawEditor();
+  let cards = state.cards;
   try {
-    state.cards = (await getCards(names)).map;
+    cards = (await getCards(names)).map;
   } catch (err) {
-    setStatus(`Couldn't reach Scryfall for card data (${err.message}).`);
+    if (id === refreshId) setStatus(`Couldn't reach Scryfall for card data (${err.message}).`);
   }
   if (id !== refreshId) return;
-  // A lock only means something on a land that is still in the deck.
-  const lands = new Set(d.main.filter((e) => isLandCard(state.cards.get(cardKey(e.name)))).map((e) => cardKey(e.name)));
-  for (const k of [...state.locks]) if (!lands.has(k) && state.cards.size) state.locks.delete(k);
+  state.cards = cards;
   drawEditor();
 
   const format = FORMATS[$('format').value];
@@ -377,16 +429,18 @@ async function refresh() {
   const key = `${format.id}-${colors.join('')}`;
   if (key === state.lands.key) return;
   if (colors.length < 2) { state.lands = { key, options: [] }; drawEditor(); return; }
-  state.lands = { key, options: null };
+  const entry = { key, options: null };
+  state.lands = entry;
   drawEditor();
   try {
-    const options = landOptions(await legalLands(format, colors), colors);
-    if (state.lands.key === key) state.lands.options = options;
+    entry.options = landOptions(await legalLands(format, colors), colors);
   } catch (err) {
-    if (state.lands.key === key) state.lands = { key: '', options: [] };
-    setStatus(`Couldn't look up the lands legal in ${format.name} (${err.message}).`);
+    // An empty key makes the next refresh try again.
+    entry.options = [];
+    entry.key = '';
+    if (state.lands === entry) setStatus(`Couldn't look up the lands legal in ${format.name} (${err.message}).`);
   }
-  if (id === refreshId || state.lands.key === key) drawEditor();
+  if (state.lands === entry) drawEditor();
 }
 
 function setDeckText(text) {
@@ -405,6 +459,7 @@ function setDeck(deck) {
 
 function showView(which) {
   const cards = which === 'cards';
+  if (cards) flushTyping();
   $('cardsView').hidden = !cards;
   $('textView').hidden = cards;
   $('viewCards').setAttribute('aria-selected', String(cards));
@@ -412,8 +467,12 @@ function showView(which) {
 }
 
 bindEditor($('editor'), {
-  change: (section, name, delta) => setDeck(changeCount(state.deck, section, name, delta)),
+  change(section, name, delta) {
+    flushTyping();
+    setDeck(changeCount(state.deck, section, name, delta));
+  },
   lock(name) {
+    flushTyping();
     const k = cardKey(name);
     if (state.locks.has(k)) state.locks.delete(k); else state.locks.add(k);
     saveWorkingDeck();
@@ -426,18 +485,22 @@ bindEditor($('editor'), {
 $('viewCards').addEventListener('click', () => showView('cards'));
 $('viewText').addEventListener('click', () => showView('text'));
 
-let typing = null;
 $('deck').addEventListener('input', () => {
   clearTimeout(typing);
-  typing = setTimeout(() => setDeckText($('deck').value), 500);
+  typing = setTimeout(() => { typing = null; setDeckText($('deck').value); }, 500);
 });
-$('format').addEventListener('change', () => { state.lands.key = ''; saveWorkingDeck(); refresh(); });
+$('format').addEventListener('change', () => { state.lands = { key: '', options: [] }; saveWorkingDeck(); refresh(); });
 
 $('results').addEventListener('click', (e) => {
   if (e.target.id !== 'applySuggested' || !lastResult?.suggested) return;
+  flushTyping();
+  if (analyzedKey($('format').value, state.deck.main) !== lastResult.analyzed
+    && !confirm('Your deck or format changed after this analysis. Use its lands anyway?')) return;
   const rows = lastResult.suggested.lands.map((l) => ({ name: l.name.split(' // ')[0], count: l.count }));
   const isLand = (name) => isBasicName(name) || isLandCard(state.cards.get(cardKey(name)));
-  setDeck(replaceLands(state.deck, isLand, rows));
+  const deck = replaceLands(state.deck, isLand, rows);
+  lastResult.analyzed = analyzedKey($('format').value, deck.main);
+  setDeck(deck);
   showView('cards');
   setStatus('Your list now has the suggested lands. Analyze again to check it.');
   $('deckEditor').scrollIntoView({ behavior: 'smooth' });
@@ -460,6 +523,7 @@ $('addCard').addEventListener('input', () => {
 function addCard() {
   const name = $('addCard').value.trim();
   if (!name) return;
+  flushTyping();
   $('addCard').value = '';
   setDeck(changeCount(state.deck, 'main', name, 1));
 }
@@ -479,17 +543,25 @@ $('savedDecks').addEventListener('change', () => {
   if (!entry) return;
   if (FORMATS[entry.format]) $('format').value = entry.format;
   state.locks = new Set((entry.locks || []).map(cardKey));
+  clearResults();
+  openedName = entry.name;
   $('deckName').value = entry.name;
   setDeckText(entry.text);
   showView('cards');
   setStatus(`Opened "${entry.name}".`);
 });
 $('saveDeck').addEventListener('click', () => {
+  flushTyping();
+  // Saving under the name of a different saved deck replaces it, so ask first.
+  const other = store.get($('deckName').value);
+  if (other && other.name.toLowerCase() !== (openedName || '').toLowerCase() && other.text !== $('deck').value
+    && !confirm(`You already have a saved deck called "${other.name}". Replace it with this one?`)) return;
   try {
     const saved = store.save({
       name: $('deckName').value, text: $('deck').value, format: $('format').value,
       locks: state.deck.main.filter((e) => state.locks.has(cardKey(e.name))).map((e) => e.name),
     });
+    openedName = saved.name;
     listSaved(saved.name);
     setStatus(`Saved "${saved.name}".`);
   } catch (err) {
@@ -501,6 +573,7 @@ $('deleteDeck').addEventListener('click', () => {
   const name = $('savedDecks').value;
   if (!name || !confirm(`Delete the saved deck "${name}"?`)) return;
   store.remove(name);
+  if (openedName && openedName.toLowerCase() === name.toLowerCase()) openedName = null;
   listSaved();
   setStatus(`Deleted "${name}".`);
 });

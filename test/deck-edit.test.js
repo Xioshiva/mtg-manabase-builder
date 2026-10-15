@@ -32,7 +32,9 @@ test('reads the sideboard of Arena, MTGO and SB: lists', () => {
 
   const other = parseDecklist('Companion\n1 Lurrus of the Dream-Den\nDeck\n4 Opt\nMaybeboard\n1 Shock\nSide:\n1 Negate\n');
   assert.deepEqual(other.main, [{ name: 'Opt', count: 4 }]);
-  assert.deepEqual(other.sideboard.map((c) => c.name), ['Lurrus of the Dream-Den', 'Shock', 'Negate']);
+  assert.deepEqual(other.sideboard.map((c) => c.name), ['Negate']);
+  assert.deepEqual(other.companion, [{ name: 'Lurrus of the Dream-Den', count: 1 }]);
+  assert.deepEqual(other.maybeboard, [{ name: 'Shock', count: 1 }]);
 
   assert.deepEqual(parseDecklist('Commander\n1 Niv-Mizzet, Parun\nDeck\n1 Opt\n').sideboard, []);
   assert.deepEqual(parseDecklist(izzetText).sideboard, [{ name: 'Glorybringer', count: 2 }]);
@@ -101,7 +103,7 @@ test('changeCount adds, removes and matches names loosely', () => {
 
   // Missing sections count as empty.
   const bare = changeCount({ main: [] }, 'commander', 'Niv-Mizzet, Parun', 1);
-  assert.deepEqual(bare, { main: [], commander: [{ name: 'Niv-Mizzet, Parun', count: 1 }], sideboard: [] });
+  assert.deepEqual(bare, { main: [], commander: [{ name: 'Niv-Mizzet, Parun', count: 1 }], sideboard: [], companion: [], maybeboard: [] });
   assert.deepEqual(changeCount({ main: [] }, 'sideboard', 'Negate', -1).sideboard, []);
   assert.throws(() => changeCount(deck, 'maybe', 'Opt', 1), /Unknown deck section/);
 
@@ -119,6 +121,22 @@ test('changeCount keeps other deck fields', () => {
   const out = changeCount({ main: [], errors: ['??'], name: 'Izzet' }, 'main', 'Opt', 1);
   assert.equal(out.name, 'Izzet');
   assert.deepEqual(out.errors, ['??']);
+});
+
+test('names from Scryfall ("Front // Back") find the front-face entry the list has', () => {
+  const deck = parseDecklist('Deck\n4 Riverglide Pathway\n2 Fire // Ice\n');
+  const more = changeCount(deck, 'main', 'Riverglide Pathway // Lavaglide Pathway', 1);
+  assert.deepEqual(more.main, [{ name: 'Riverglide Pathway', count: 5 }, { name: 'Fire', count: 2 }]);
+  assert.deepEqual(changeCount(deck, 'main', 'Fire // Ice', 1).main[1], { name: 'Fire', count: 3 });
+  assert.deepEqual(changeCount(deck, 'main', 'Sink into Stupor // Soporific Springs', 1).main[2], { name: 'Sink into Stupor', count: 1 });
+  const rows = replaceLands(deck, (n) => /Pathway/.test(n), [{ name: 'Riverglide Pathway // Lavaglide Pathway', count: 3 }]);
+  assert.deepEqual(rows.main[0], { name: 'Riverglide Pathway', count: 3 });
+});
+
+test('an Arena companion survives an edit without turning into sideboard copies', () => {
+  const text = 'Companion\n1 Lurrus of the Dream-Den (IKO) 226\n\nDeck\n4 Opt (M21) 59\n20 Island (M21) 264\n\nSideboard\n1 Lurrus of the Dream-Den (IKO) 226\n2 Negate (M21) 52\n\nMaybeboard\n3 Counterspell\n';
+  const edited = formatDecklist(changeCount(parseDecklist(text), 'main', 'Opt', -1));
+  assert.equal(edited, 'Companion\n1 Lurrus of the Dream-Den\n\nDeck\n3 Opt\n20 Island\n\nSideboard\n1 Lurrus of the Dream-Den\n2 Negate\n\nMaybeboard\n3 Counterspell\n');
 });
 
 test('replaceLands swaps the manabase in place', () => {
@@ -259,4 +277,9 @@ test('deck store survives missing or refusing storage', () => {
   assert.throws(() => full.save({ name: 'Grixis', text: '' }), refused);
   assert.equal(full.remove('Izzet'), false);
   assert.deepEqual(full.list(), [{ name: 'Izzet', format: null, savedAt: 1 }]);
+});
+
+test('saved locks that are not names are dropped when read', () => {
+  const store = createDeckStore(memoryStorage({ [KEY]: JSON.stringify([{ name: 'X', text: '4 Opt', locks: [null, 'Island', 3] }]) }));
+  assert.deepEqual(store.get('X').locks, ['Island']);
 });

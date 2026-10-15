@@ -84,10 +84,35 @@ test('a land count override changes only unlocked basics', async () => {
   assert.deepEqual(more.suggested.lands.map((l) => [l.name, l.count]), [['Island', 12], ['Plains', 10], ['Meticulous Archive', 4]]);
   const fewer = await runAnalysis({ model, games: 400, landCount: 21, lockedLands });
   assert.deepEqual(fewer.suggested.lands.map((l) => [l.name, l.count]), [['Plains', 10], ['Island', 7], ['Meticulous Archive', 4]]);
-  // With every basic locked there is nothing to remove, so the count stays.
-  const stuck = await runAnalysis({ model, games: 400, landCount: 22, lockedLands: [...lockedLands, 'Island'] });
+  // With every land locked there is nothing to remove or add, and the result says so.
+  const all = [...lockedLands, 'Island'];
+  const stuck = await runAnalysis({ model, games: 400, landCount: 22, lockedLands: all });
   assert.equal(lands(stuck), 24);
-  assert.equal(stuck.landCount, 22);
+  assert.equal(stuck.landCount, 24);
+  assert.ok(stuck.notes.some((n) => /locked lands add up to 24 lands, more than the 22/.test(n)), stuck.notes.join('\n'));
+  const short = await runAnalysis({ model, games: 400, landCount: 26, lockedLands: all });
+  assert.equal(lands(short), 24);
+  assert.ok(short.notes.some((n) => /Only 24 lands fit around your locked lands, not 26/.test(n)), short.notes.join('\n'));
+});
+
+test('with every basic locked, other unlocked lands make up the land count', async () => {
+  const model = azorius([real('Meticulous Archive', 4), basicLandDef('W', 10), basicLandDef('U', 10)]);
+  const lockedLands = ['Plains', 'Island'];
+  const fewer = await runAnalysis({ model, games: 400, landCount: 22, lockedLands });
+  assert.equal(lands(fewer), 22);
+  assert.equal(fewer.landCount, 22);
+  assert.equal(count(fewer, 'Plains') + count(fewer, 'Island'), 20);
+  const candidateCards = [scry('Hallowed Fountain')];
+  const more = await runAnalysis({ model, games: 400, landCount: 26, lockedLands, candidateCards });
+  assert.equal(lands(more), 26);
+  assert.equal(count(more, 'Plains'), 10);
+  assert.equal(count(more, 'Island'), 10);
+  assert.ok(!more.notes.some((n) => /locked lands/.test(n)));
+
+  // Build mode with both basics locked: duals fill the slots the basics can't.
+  const built = await runAnalysis({ model, mode: 'build', games: 400, landCount: 25, lockedLands, candidateCards });
+  assert.equal(lands(built), 25);
+  assert.equal(count(built, 'Plains') + count(built, 'Island'), 20);
 });
 
 test('locked lands are reported under locked, utility lands under kept', async () => {

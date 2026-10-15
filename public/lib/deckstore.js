@@ -18,7 +18,7 @@ function cleanEntry(e) {
     name: e.name.trim(),
     text: typeof e.text === 'string' ? e.text : '',
     format: e.format ?? null,
-    locks: Array.isArray(e.locks) ? [...e.locks] : [],
+    locks: Array.isArray(e.locks) ? e.locks.filter((l) => typeof l === 'string') : [],
     savedAt: Number.isFinite(e.savedAt) ? e.savedAt : 0,
   };
 }
