@@ -8,7 +8,7 @@ Paste a Magic: The Gathering decklist, or a Moxfield or MTGTop8 deck link, and t
 4. **Searches for a better manabase**. It swaps basics and dual lands legal in your format one at a time and keeps each swap that does better in simulation. Lands that do more than make mana (creature lands, lands that draw or make tokens, graveyard hate) stay as they are, because the simulator can't judge what they're worth. Untick "Keep lands that do more than make mana" (or pass `--swap-utility`) to let the search replace them too. Lands you lock in the deck editor are never swapped.
 5. **Compares land counts** from two fewer to two more lands, looking at land drops, flood and mana spent.
 
-Standard is the main target. Pioneer, Modern and Commander are included as previews (see `public/lib/formats.js`).
+Standard, Pioneer and Modern are supported. Commander is included as a preview (see `public/lib/formats.js`).
 
 ## Run it
 
@@ -50,11 +50,12 @@ Tests: `npm test`
 
 ## Tested on real decks
 
-`test/fixtures/real/` holds 13 Standard decks that placed at events listed on MTGTop8 in October 2026, with the rules text of every card in them (see its README for the sources). The tests check that every deck loads as 60 cards, simulates, and has no land the builder can't read. Two scripts help when the builder misreads something:
+`test/fixtures/real/` holds 31 decks that placed at events listed on MTGTop8 in October 2026 (13 Standard, 9 Pioneer, 9 Modern), with the rules text of every card in them (see its README for the sources). The tests check that every deck loads, is legal in its format, simulates, and has no land the builder can't read. Two scripts help when the builder misreads something:
 
 ```
-node scripts/real-decks.js                     # analyze all 13 decks (add --optimize to search for better lands)
-node scripts/real-decks.js --deck dimir        # just one deck
+node scripts/real-decks.js                     # analyze all 31 decks (add --optimize to search for better lands)
+node scripts/real-decks.js --format modern     # just the Modern decks (standard, pioneer or modern)
+node scripts/real-decks.js --deck dimir        # just the decks whose file name contains "dimir"
 node scripts/explain-cards.js                  # each card's rules text next to what the builder understood
 ```
 
@@ -88,7 +89,17 @@ Each turn the bot follows these steps:
 
 Scry, surveil and "look at the top N" effects keep lands while the bot is short on lands, and keep spells otherwise.
 
-The simulator understands these lands: basics, fast lands, slow lands, check lands, shocklands, pay-life double-faced lands, surveil lands, verges, pathways, thriving lands, painlands, fetches like Fabled Passage, lands that pick a basic land type (Multiversal Passage), lands that are untapped on your first three turns (Starting Town), lands whose colored mana can only cast creatures or only instants and sorceries (Cavern of Souls style), lands that enter untapped if you behold a card type (Theorist's Sanctum), and plain tapped lands. A land with an "enters tapped unless" condition it doesn't recognize is treated as always tapped and listed in the notes.
+The simulator understands these lands: basics (snow basics and Wastes too), fast lands, slow lands, check lands, shocklands, pay-life double-faced lands, surveil lands, scry lands (Temples), verges, pathways, thriving lands, painlands, lands that pick a basic land type (Multiversal Passage), lands that are untapped on your first three turns (Starting Town), lands whose colored mana can only cast creatures or only instants and sorceries (Cavern of Souls style), lands that enter untapped if you behold a card type (Theorist's Sanctum), and plain tapped lands. A land with an "enters tapped unless" condition it doesn't recognize is treated as always tapped and listed in the notes.
+
+For Pioneer and Modern it also understands:
+
+- **Fetchlands** (Polluted Delta, Prismatic Vista, Evolving Wilds, Fabled Passage). The bot fetches the land it needs most, pays the life, and only counts a fetch as a source of a color when the deck has a land of that color it can find.
+- **Lands that make more than one mana**: bounce lands like Simic Growth Chamber (they return a land to your hand), Lotus Field (it sacrifices two lands, so the bot waits until it has two others), and Urza's Saga (it makes mana until its last chapter, is tapped once more and then leaves). A land that is about to be returned or sacrificed is tapped for mana first.
+- **Lands and permanents that change other lands**: Urborg, Tomb of Yawgmoth and Leyline of the Guildpact give your lands more colors, and Spelunking makes lands enter untapped.
+- **Leylines**: every Leyline in your opening hand starts the game on the battlefield.
+- **Ramp**: spells and creatures that put lands onto the battlefield (Rampant Growth, Cultivate, Primeval Titan) or let you put a land from your hand (Arboreal Grazer), plus mana rocks that make two mana (Sol Ring), Mox Opal (it only works with three artifacts, artifact lands included), land tokens (Overlord of the Hauntwoods) and mana a permanent adds as it enters (Outcaster Trailblazer, Crumbling Vestige).
+- **Domain**: spells that cost less for each basic land type you control (Leyline Binding, Scion of Draco).
+- **The legend rule**: the bot never casts a second copy of a legendary permanent it already has.
 
 ## Known limits
 
@@ -97,6 +108,12 @@ The simulator understands these lands: basics, fast lands, slow lands, check lan
 - Draw effects are read from rules text. Check the "Draw and selection spells" table to see what was detected. Draws that depend on the opponent, on sacrificing something, or on which colors paid for the spell aren't counted; the notes list them.
 - The search only values mana. It can't tell how good a creature land or a utility land is, which is why it keeps them by default.
 - Modal spells with a draw mode always use that mode.
+- Mana that depends on the board isn't counted: devotion (Nykthos), the Tron bonus (each Urza's land makes one {C}), Ugin's Labyrinth's exiled card, cascade, and life paid for Phyrexian mana.
+- Amulet of Vigor's untap isn't modelled: lands that enter tapped stay tapped.
+- Mana from abilities that cost life or only cast some spells is counted once, even when the ability makes more than one mana.
+- Spells with no mana cost (suspend cards like Ancestral Vision, Living End) are never cast.
+- Alternative costs (evoke, impending, warp, dash, delve) aren't used: a spell is always cast for its mana cost.
+- Effects that sacrifice any number of lands (Scapeshift) or return lands from the graveyard (Lumra) aren't modelled.
 - Commander support is a preview. It doesn't handle commander tax or check color identity yet.
 
 ## Layout

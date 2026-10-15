@@ -82,7 +82,7 @@ if (r.suggested?.kept.length) console.log(`  kept as they are (they do more than
 const main = r.suggested || r.current;
 console.log(`\n${main.sim.games} games per manabase; ± is the 95% margin of error.`);
 console.log('\nOn-curve castability (when held on its turn):');
-for (const s of main.sim.spells.sort((a, b) => a.cmc - b.cmc)) console.log(`  ${pct(s.onCurve)} ±${(s.onCurveMoe * 100).toFixed(1).padStart(4)}  MV${s.cmc} ${s.copies}x ${s.name}${s.isDraw ? ' (draw)' : ''}${s.costReduction ? ' (cost reduction not modelled)' : ''}${s.curveTurn !== s.cmc ? ` (checked turn ${s.curveTurn})` : ''}`);
+for (const s of main.sim.spells.sort((a, b) => a.cmc - b.cmc)) console.log(`  ${pct(s.onCurve)} ±${(s.onCurveMoe * 100).toFixed(1).padStart(4)}  MV${s.cmc} ${s.copies}x ${s.name}${s.isDraw ? ' (draw)' : ''}${s.domain ? ' (domain, left out of the average)' : s.costReduction ? ' (cost reduction not modelled)' : ''}${s.curveTurn !== s.cmc ? ` (checked turn ${s.curveTurn})` : ''}`);
 console.log('\nLand count sweep:');
 for (const s of r.sweep) console.log(`  ${s.lands} lands: on curve ${pct(s.castOnCurve)} · 4th land T4 ${pct(s.fourthLandOnTurn4)} · flood ${pct(s.floodRate)} · mana by T7 ${s.manaSpent.toFixed(1)}`);
 if (r.drawSpells.length) console.log('\nDraw spells: ' + r.drawSpells.map((d) => `${d.name} (${d.effect})`).join('; '));

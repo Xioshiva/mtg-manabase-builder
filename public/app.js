@@ -227,7 +227,7 @@ function render(r) {
     ${main.sim.spells.sort((a, b) => a.cmc - b.cmc || a.name.localeCompare(b.name)).map((s) => {
       const c = spellsCur.get(s.name);
       const colorFail = s.enoughLands * (1 - s.onCurveGivenEnough);
-      const tags = [s.isDraw && 'draw', s.costReduction && 'cost reduction not modelled, left out of the average', s.curveTurn !== s.cmc && `checked on turn ${s.curveTurn} for its extra cost`].filter(Boolean);
+      const tags = [s.isDraw && 'draw', (s.domain ? 'cheaper with more basic land types, left out of the average' : s.costReduction && 'cost reduction not modelled, left out of the average'), s.curveTurn !== s.cmc && `checked on turn ${s.curveTurn} for its extra cost`].filter(Boolean);
       return `<tr><td>${esc(s.name)}${tags.length ? ` <span class="muted">(${tags.join('; ')})</span>` : ''}</td><td class="n">${s.cmc}</td><td class="n">${s.copies}</td>
         ${cur && sug ? `<td class="n ${cls(c ? c.onCurve : 0)}">${c ? pct(c.onCurve) : '–'}</td>` : ''}
         <td class="n ${cls(s.onCurve)}">${pct(s.onCurve)} ${pm(s.onCurveMoe, pts)}</td><td class="n">${pct(colorFail)}</td>
