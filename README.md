@@ -5,7 +5,7 @@ Paste a Magic: The Gathering decklist, or a Moxfield or MTGTop8 deck link, and t
 1. **Recommends a land count** with Frank Karsten's formula, which uses average mana value, cheap card draw and spell/land double-faced cards.
 2. **Estimates the colored sources you need** in each color so every spell is castable on curve 90% of the time.
 3. **Simulates thousands of goldfish games** to test the manabase. The simulation handles London mulligans, land drops and lands that enter tapped. It casts card draw and selection spells (Opt, Consider, Stock Up, creatures that draw when they enter, loot effects) to dig for lands, and uses mana creatures and mana rocks once they are on the battlefield.
-4. **Searches for a better manabase**. It swaps basics and Standard-legal dual lands one at a time and keeps each swap that does better in simulation. Lands that do more than make mana (creature lands, lands that draw or make tokens, graveyard hate) stay as they are, because the simulator can't judge what they're worth. Untick "Keep lands that do more than make mana" (or pass `--swap-utility`) to let the search replace them too.
+4. **Searches for a better manabase**. It swaps basics and dual lands legal in your format one at a time and keeps each swap that does better in simulation. Lands that do more than make mana (creature lands, lands that draw or make tokens, graveyard hate) stay as they are, because the simulator can't judge what they're worth. Untick "Keep lands that do more than make mana" (or pass `--swap-utility`) to let the search replace them too. Lands you lock in the deck editor are never swapped.
 5. **Compares land counts** from two fewer to two more lands, looking at land drops, flood and mana spent.
 
 Standard is the main target. Pioneer, Modern and Commander are included as previews (see `public/lib/formats.js`).
@@ -20,7 +20,19 @@ node server.js          # then open http://localhost:5173
 
 Your browser fetches card data from Scryfall and caches it locally.
 
-To load a deck, paste the list (Arena or MTGO export), or paste a link to a public Moxfield deck or an MTGTop8 deck and click Import. Neither site lets web pages fetch decks directly, so the local server fetches the deck for the page. That's why you open the app through `node server.js` instead of opening the HTML file. If a site refuses the request, export the list from it and paste it instead.
+To load a deck, paste the list (Arena or MTGO export) in the Text tab, or paste a link to a public Moxfield deck or an MTGTop8 deck and click Import. Neither site lets web pages fetch decks directly, so the local server fetches the deck for the page. That's why you open the app through `node server.js` instead of opening the HTML file. If a site refuses the request, export the list from it and paste it instead.
+
+### Editing and saving a deck
+
+Once a deck is loaded, the Cards tab shows every card with its picture, grouped by type:
+
+- **+ and −** change the number of copies. The text list stays in step, so you can switch between Cards and Text at any time.
+- **Add a card by name** with the box above the cards. Names autocomplete from Scryfall.
+- **🔓 on a land** locks it. The search never swaps a locked land, in either mode. Click 🔒 to unlock it. When you set a land count, the unlocked lands grow or shrink to meet it; if every land is locked, the results say the count couldn't change.
+- **Dual lands legal in the format** for your colors are listed under your lands, best first, with + to add one. The list comes from Scryfall's legality data for the format you pick, so it changes when you switch formats. When a color is short of sources, the results also name the duals that would help.
+- **Use these lands in my list**, under the suggested manabase, swaps your lands for the suggested ones. It asks first if you changed the deck after the analysis.
+- **Sideboard, Companion and Maybeboard** sections from your list are shown under the main deck and kept when the list is rewritten. Only the main deck (and commander) is simulated.
+- **Save** keeps the deck, its format and its locked lands in this browser under the name you give it. Open it again from the Saved decks menu. **Download .txt** saves the list as a file.
 
 Command line version:
 
@@ -28,6 +40,7 @@ Command line version:
 node cli.js mydeck.txt                      # check and improve my lands
 node cli.js mydeck.txt --mode build         # ignore my lands, build from scratch
 node cli.js mydeck.txt --games 50000 --play draw --lands 23
+node cli.js mydeck.txt --threads 2          # use 2 CPU threads (default: all)
 node cli.js https://moxfield.com/decks/<id>   # import from Moxfield
 node cli.js "https://www.mtgtop8.com/event?e=<event>&d=<deck>&f=ST"   # import from MTGTop8
 node cli.js test/fixtures/izzet.txt --cards test/fixtures/cards.json   # offline sample
@@ -62,6 +75,8 @@ The builder uses two methods together:
 
 The two manabases you compare play the same shuffled games, so the difference between them is more precise than either ± alone. The search screens swaps on one set of games and confirms them on another, and it only accepts a swap that wins by more than the noise.
 
+Simulations run on every CPU thread your computer has (up to 16 in the browser, 64 on the command line). Each batch of games has its own fixed shuffle seed, and the search stops after a set number of steps rather than after a set time, so the numbers and the suggested lands are exactly the same whether they run on one thread or sixteen; only the speed changes.
+
 ## How the simulator plays
 
 Each turn the bot follows these steps:
@@ -87,7 +102,9 @@ The simulator understands these lands: basics, fast lands, slow lands, check lan
 ## Layout
 
 ```
-public/lib/decklist.js   parse pasted lists
+public/lib/decklist.js   parse, edit and write decklists
+public/lib/deckstore.js  saved decks (browser storage)
+public/lib/lands.js      the legal lands worth offering for a deck's colors
 public/lib/scryfall.js   Scryfall API (collection lookup, legal land search)
 public/lib/moxfield.js   Moxfield deck import (fetched through server.js)
 public/lib/mtgtop8.js    MTGTop8 deck import (fetched through server.js)
@@ -95,11 +112,16 @@ public/lib/importers.js  picks the importer for a deck link
 public/lib/cards.js      Scryfall card -> land / spell model
 public/lib/mana.js       mana costs and payment
 public/lib/sim.js        the game simulator
+public/lib/pool.js       spreads simulations across threads
 public/lib/recommend.js  land count formula, sources needed, basic split
 public/lib/optimize.js   manabase search, land count sweep
 public/lib/analysis.js   puts it all together
 public/lib/formats.js    format rules (add new formats here)
-public/app.js, worker.js the web page (simulation runs in a Web Worker)
+public/app.js            the web page
+public/editor.js         the card view of the deck (+/−, locks, dual lands)
+public/sim-worker.js     one simulation thread for the web page
 cli.js, server.js        command line tool and static server
+node-pool.js             simulation threads for the command line
+static-file.js           maps page addresses to files for server.js
 scripts/                 real-deck report and card reading checker
 ```

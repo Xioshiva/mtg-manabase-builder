@@ -56,3 +56,39 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
 .bar > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); }
 footer { padding: 24px 16px 40px; font-size: 13px; }
 a { color: var(--accent); }
+
+/* Saved decks and the deck editor */
+.saved { margin-bottom: 14px; }
+.row { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; align-items: center; }
+.saved select { margin-top: 0; min-width: 0; flex: 1 1 200px; }
+.saved input, .addcard input { flex: 1 1 160px; min-width: 0; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; }
+.tabs { display: flex; gap: 0; margin-bottom: 10px; }
+.tabs button { border-radius: 0; background: transparent; color: var(--accent); }
+.tabs button:first-child { border-radius: 8px 0 0 8px; }
+.tabs button:last-child { border-radius: 0 8px 8px 0; border-left: 0; }
+.tabs button[aria-selected="true"] { background: var(--accent); color: #fff; }
+.tip { margin: 6px 0 0; }
+.summary { margin: 10px 0 0; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+.tile { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tile .art { position: relative; aspect-ratio: 146 / 204; border-radius: 6px; overflow: hidden; background: var(--bg); border: 1px solid var(--border); }
+.tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tile .noimg { padding: 8px; font-size: 12px; font-weight: 600; }
+.tile .count { position: absolute; left: 6px; bottom: 6px; min-width: 26px; padding: 1px 6px; border-radius: 12px; background: rgba(0, 0, 0, .78); color: #fff; font-weight: 700; font-size: 14px; text-align: center; }
+.tile .lock { position: absolute; right: 4px; top: 4px; padding: 2px 5px; font-size: 14px; line-height: 1.2; border-radius: 6px; background: rgba(0, 0, 0, .55); border: 0; }
+.tile.locked .art { outline: 3px solid var(--warn); outline-offset: -3px; }
+.tile .qty { display: flex; align-items: center; gap: 4px; }
+.tile .qty button { padding: 0; width: 28px; height: 28px; flex: none; font-size: 17px; line-height: 1; }
+.tile .qty .name { flex: 1; min-width: 0; font-size: 12px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tiles.small { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+.tile.option.have .art { outline: 3px solid var(--good); outline-offset: -3px; }
+.tile .how { font-size: 11px; line-height: 1.3; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.tile .how .pip { font-size: 10px; min-width: 15px; }
+details.duals { margin-top: 16px; }
+details.duals summary { cursor: pointer; }
+details.duals summary h3 { display: inline; margin: 0; }
+@media (max-width: 600px) {
+  .tiles, .tiles.small { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+  .tile .qty button { width: 26px; height: 26px; }
+}
+button.more { margin-top: 10px; }
