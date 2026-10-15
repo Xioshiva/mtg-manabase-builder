@@ -26,12 +26,58 @@ export function landsWanted(cards) {
   return Math.max(3, Math.min(6, maxCmc));
 }
 
+// Games are played in fixed chunks, each with its own seed. A simulation gives the same
+// numbers whether its chunks run one after another or spread across several threads
+// (see pool.js), and the chunks double as the batches for the margins of error.
+export function chunkCount(games) {
+  return games >= 200 ? 20 : 1;
+}
+
+export function chunkSeed(seed, k) {
+  let h = (seed ^ Math.imul(k + 1, 0x9e3779b9)) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
 export function simulate(model, opts = {}) {
+  return finishSimulation(model, opts, [simulateChunks(model, opts, 0, chunkCount(opts.games ?? 4000))]);
+}
+
+// What both halves of a simulation (playing chunks, summarizing them) need to agree on.
+function setup(model, opts) {
   const turns = opts.turns ?? 7;
   const games = opts.games ?? 4000;
-  const mode = opts.play ?? 'both';
-  const rng = makeRng(opts.seed ?? 12345);
   const defs = model.cards;
+  const tracked = [];
+  const curveTurn = (d) => d.spell.curveTurn ?? d.spell.cmc;
+  defs.forEach((d, i) => { if (d.count > 0 && d.spell && !d.filler && curveTurn(d) >= 1 && curveTurn(d) <= turns) tracked.push(i); });
+  let maxCmc = 0;
+  for (const d of defs) if (d.count && d.spell && !d.filler) maxCmc = Math.max(maxCmc, d.spell.cmc);
+  const wantLands = opts.wantLands ?? Math.max(3, Math.min(6, maxCmc));
+  return { turns, games, defs, tracked, curveTurn, wantLands, floodAt: wantLands + 4 };
+}
+
+const SCALAR_STATS = ['mulligans', 'cardsKept', 'drawSpellsCast', 'extraCards', 'flood', 'mdfcAsLand', 'life', 'spentSq'];
+const TURN_STATS = ['hitDrop', 'lands', 'spent'];
+const CARD_STATS = ['inHand', 'onCurve', 'enough', 'onCurveGivenEnough'];
+
+function emptyStats(turns, nCards) {
+  const st = {};
+  for (const k of SCALAR_STATS) st[k] = 0;
+  for (const k of TURN_STATS) st[k] = new Float64Array(turns + 1);
+  for (const k of CARD_STATS) st[k] = new Float64Array(nCards);
+  return st;
+}
+
+// Plays chunks [from, to) of a simulation and returns the raw counts summed over them,
+// plus each chunk's headline averages (the batches behind the margins of error).
+export function simulateChunks(model, opts, from, to) {
+  const { turns, games, defs, tracked, curveTurn, wantLands, floodAt } = setup(model, opts);
+  const nChunks = chunkCount(games);
+  const seed = opts.seed ?? 12345;
+  const mode = opts.play ?? 'both';
+  let rng;
   const fmt = model.format;
   const handSize = fmt.handSize ?? 7;
   const keepRanges = fmt.keepRanges ?? { 7: [2, 5], 6: [2, 4], 5: [1, 4] };
@@ -39,32 +85,14 @@ export function simulate(model, opts = {}) {
   const deckList = [];
   defs.forEach((d, i) => { for (let k = 0; k < d.count; k++) deckList.push(i); });
   const landish = defs.map((d) => !!(d.land || d.mdfcLand));
-  const tracked = [];
-  const curveTurn = (d) => d.spell.curveTurn ?? d.spell.cmc;
-  defs.forEach((d, i) => { if (d.count > 0 && d.spell && !d.filler && curveTurn(d) >= 1 && curveTurn(d) <= turns) tracked.push(i); });
   const trackedSet = new Uint8Array(defs.length);
   for (const i of tracked) trackedSet[i] = 1;
   const seenTurn = new Int32Array(defs.length);
   const demand = colorDemand(defs);
   const demandBits = new Float64Array(64);
   for (const c of COLOR_ORDER) demandBits[COLOR_BITS[c]] = demand[c];
-  let maxCmc = 0;
-  for (const d of defs) if (d.count && d.spell && !d.filler) maxCmc = Math.max(maxCmc, d.spell.cmc);
-  const wantLands = opts.wantLands ?? Math.max(3, Math.min(6, maxCmc));
-  const floodAt = wantLands + 4;
 
-  const st = {
-    games, turns,
-    mulligans: 0, cardsKept: 0,
-    hitDrop: new Float64Array(turns + 1),
-    lands: new Float64Array(turns + 1),
-    spent: new Float64Array(turns + 1),
-    drawSpellsCast: 0, extraCards: 0, flood: 0, mdfcAsLand: 0, life: 0, spentSq: 0,
-    inHand: new Float64Array(defs.length),
-    onCurve: new Float64Array(defs.length),
-    enough: new Float64Array(defs.length),
-    onCurveGivenEnough: new Float64Array(defs.length),
-  };
+  const st = emptyStats(turns, defs.length);
 
   // bf: lands on the battlefield. perms: nonland permanents we cast or made (for mana and
   // for "unless you control an Equipment"-style checks). Mana sources share one shape:
@@ -447,19 +475,16 @@ export function simulate(model, opts = {}) {
   }
 
   // Batch means: the headline averages mix spells from the same games, which are
-  // correlated, so their margin of error comes from the spread across 20 batches.
-  const nBatches = games >= 200 ? 20 : 0;
-  const batchSize = nBatches ? Math.ceil(games / nBatches) : 0;
+  // correlated, so their margin of error comes from the spread across the chunks.
+  const batches = [];
   const snap = { inHand: new Float64Array(defs.length), onCurve: new Float64Array(defs.length), enough: new Float64Array(defs.length), given: new Float64Array(defs.length) };
-  st.batches = [];
   const closeBatch = () => {
     const d = (a, b) => tracked.map((i) => a[i] - b[i]);
-    st.batches.push(weighted(defs, tracked, d(st.inHand, snap.inHand), d(st.onCurve, snap.onCurve), d(st.enough, snap.enough), d(st.onCurveGivenEnough, snap.given)));
+    batches.push(weighted(defs, tracked, d(st.inHand, snap.inHand), d(st.onCurve, snap.onCurve), d(st.enough, snap.enough), d(st.onCurveGivenEnough, snap.given)));
     snap.inHand.set(st.inHand); snap.onCurve.set(st.onCurve); snap.enough.set(st.enough); snap.given.set(st.onCurveGivenEnough);
   };
 
-  for (let g = 0; g < games; g++) {
-    if (batchSize && g > 0 && g % batchSize === 0) closeBatch();
+  function playGame(g) {
     const onPlay = mode === 'both' ? g % 2 === 0 : mode === 'play';
     mulligan();
     bf = [];
@@ -527,8 +552,26 @@ export function simulate(model, opts = {}) {
     st.spentSq += spentTotal * spentTotal;
   }
 
-  if (batchSize) closeBatch();
-  return summarize(st, defs, tracked, { wantLands, floodAt });
+  for (let k = from; k < to; k++) {
+    rng = makeRng(chunkSeed(seed, k));
+    const end = Math.floor((k + 1) * games / nChunks);
+    for (let g = Math.floor(k * games / nChunks); g < end; g++) playGame(g);
+    if (nChunks > 1) closeBatch();
+  }
+  return { st, batches };
+}
+
+// Adds up the parts returned by simulateChunks (in chunk order) and summarizes them.
+export function finishSimulation(model, opts, parts) {
+  const { turns, games, defs, tracked, wantLands, floodAt } = setup(model, opts);
+  const st = emptyStats(turns, defs.length);
+  const batches = [];
+  for (const p of parts) {
+    for (const k of SCALAR_STATS) st[k] += p.st[k];
+    for (const k of [...TURN_STATS, ...CARD_STATS]) for (let i = 0; i < st[k].length; i++) st[k][i] += p.st[k][i];
+    batches.push(...p.batches);
+  }
+  return summarize({ ...st, games, turns, batches }, defs, tracked, { wantLands, floodAt });
 }
 
 // Spells whose cost reduction we can't model would skew the on-curve average.

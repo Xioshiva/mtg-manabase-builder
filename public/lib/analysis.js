@@ -1,7 +1,8 @@
 // Ties everything together: card data + parsed list -> recommendation + simulations.
 import { normalizeCard, basicLandDef, isBasicName, BASIC_BY_COLOR, describeEffect, landSummary, landColors } from './cards.js';
 import { COLOR_ORDER, COLOR_BITS } from './mana.js';
-import { simulate, colorDemand } from './sim.js';
+import { colorDemand } from './sim.js';
+import { inlineSimulator } from './pool.js';
 import { deckStats, recommendLandCount, sourcesNeeded, countSources, splitBasics, ensureBasics } from './recommend.js';
 import { optimizeLands, landCountSweep, pickCandidates } from './optimize.js';
 import { cardKey } from './decklist.js';
@@ -56,7 +57,9 @@ function landRows(cards) {
 // candidateCards: extra Scryfall land cards the optimizer may use.
 // keepUtility: in 'analyze' mode, lands that do more than make mana (creature lands,
 // card draw, graveyard hate, ...) stay as they are, since the simulator can't value that.
-export function runAnalysis({ model, mode = 'analyze', candidateCards = [], games = 4000, play = 'both', optimize = true, keepUtility = true, landCount: landOverride, onProgress = () => {} }) {
+// sim: where the simulations run (see pool.js); by default on this thread.
+export async function runAnalysis({ model, mode = 'analyze', candidateCards = [], games = 4000, play = 'both', optimize = true, keepUtility = true, landCount: landOverride, onProgress = () => {}, sim = inlineSimulator }) {
+  const simulateOne = async (cs) => (await sim.simulateMany({ cards: cs, format: model.format }, [null], { games, play }))[0];
   const format = model.format;
   let cards = model.cards.map((d) => ({ ...d }));
   const colors = deckColors(cards);
@@ -84,7 +87,7 @@ export function runAnalysis({ model, mode = 'analyze', candidateCards = [], game
   const userCards = cards.map((d) => ({ ...d }));
   if (currentLands > 0) {
     onProgress({ stage: 'Simulating your manabase' });
-    current = { lands: landRows(userCards), sources: countSources(userCards), sim: simulate({ cards: userCards, format }, { games, play }) };
+    current = { lands: landRows(userCards), sources: countSources(userCards), sim: await simulateOne(userCards) };
   }
 
   // Starting point for the search.
@@ -122,17 +125,17 @@ export function runAnalysis({ model, mode = 'analyze', candidateCards = [], game
   let suggested = null;
   if (optimize) {
     onProgress({ stage: 'Searching for a better manabase' });
-    const result = optimizeLands({ cards, format }, {
-      deckColors: colors, maxCopies: format.maxCopies, play,
+    const result = await optimizeLands({ cards, format }, {
+      deckColors: colors, maxCopies: format.maxCopies, play, sim,
       onProgress: (p) => onProgress({ stage: 'Searching for a better manabase', ...p }),
     });
     cards = result.cards;
     onProgress({ stage: 'Checking the suggested manabase' });
-    suggested = { lands: landRows(cards), sources: countSources(cards), sim: simulate({ cards, format }, { games, play }), history: result.history, kept };
+    suggested = { lands: landRows(cards), sources: countSources(cards), sim: await simulateOne(cards), history: result.history, kept };
   }
 
   onProgress({ stage: 'Comparing land counts' });
-  const sweep = landCountSweep({ cards, format }, [-2, -1, 0, 1, 2], { games: Math.min(games, 3000), play });
+  const sweep = await landCountSweep({ cards, format }, [-2, -1, 0, 1, 2], { games: Math.min(games, 3000), play, sim });
 
   return {
     format: format.name,

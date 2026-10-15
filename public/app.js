@@ -5,6 +5,8 @@ import { normalizeCard } from './lib/cards.js';
 import { colorDemand } from './lib/sim.js';
 import { COLOR_ORDER } from './lib/mana.js';
 import { recognizeDeckLink } from './lib/importers.js';
+import { buildModel, runAnalysis } from './lib/analysis.js';
+import { createSimPool } from './lib/pool.js';
 
 const $ = (id) => document.getElementById(id);
 const CACHE_KEY = 'manabase-card-cache-v1';
@@ -182,9 +184,26 @@ function render(r) {
   $('results').innerHTML = html.join('');
 }
 
-let worker = null;
+// Simulations run on one worker per CPU thread (at most 16; each simulation has only 20
+// chunks to share out); the page itself only hands out the work and adds up the results.
+const THREADS = Math.max(1, Math.min(navigator.hardwareConcurrency || 4, 16));
+function startPool() {
+  return createSimPool({
+    size: THREADS,
+    spawn(onMessage, onError) {
+      const w = new Worker(new URL('./sim-worker.js', import.meta.url), { type: 'module' });
+      w.onmessage = (e) => onMessage(e.data);
+      w.onerror = (e) => { e.preventDefault(); onError(new Error(e.message || 'a simulation worker failed to start')); };
+      return { post: (msg) => w.postMessage(msg), terminate: () => w.terminate() };
+    },
+  });
+}
+
+let pool = null;
+let runId = 0; // a newer run makes an older one's results stale
 async function run() {
   const text = $('deck').value;
+  const id = ++runId;
   try { localStorage.setItem('manabase-deck', text); } catch {}
   const parsed = parseDecklist(text);
   if (!parsed.main.length) { setStatus('Paste a decklist first.'); return; }
@@ -208,23 +227,30 @@ async function run() {
         }
       }
     }
-    setStatus('Simulating…');
-    if (worker) worker.terminate();
-    worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
-    worker.onmessage = (e) => {
-      const m = e.data;
-      if (m.type === 'progress') setStatus(m.iter ? `${m.stage} (step ${m.iter})…` : `${m.stage}…`);
-      else if (m.type === 'done') { render(m.result); setStatus('Done.'); $('run').disabled = false; }
-      else if (m.type === 'error') { setStatus('Error: ' + m.message); console.error(m.stack); $('run').disabled = false; }
-    };
-    worker.postMessage({
-      parsed, cards: [...map], formatId: format.id, mode: $('mode').value, candidateCards,
+    if (pool) pool.close();
+    pool = startPool();
+    const threads = `${THREADS} thread${THREADS === 1 ? '' : 's'}`;
+    setStatus(`Simulating on ${threads}…`);
+    const built = buildModel(parsed, map, format);
+    const result = await runAnalysis({
+      model: built.model, mode: $('mode').value, candidateCards,
       games: Number($('games').value), play: $('play').value,
       landCount: Number($('landCount').value) || undefined, optimize: $('optimize').checked, keepUtility: $('keepUtility').checked,
+      sim: pool,
+      onProgress: (p) => { if (id === runId) setStatus(`${p.stage}${p.iter ? ` (step ${p.iter})` : ''} on ${threads}…`); },
     });
+    if (id !== runId) return;
+    render({ ...result, unknown: built.unknown, illegal: built.illegal, warnings: built.warnings });
+    setStatus('Done.');
   } catch (err) {
+    if (id !== runId) return;
     setStatus('Error: ' + err.message);
-    $('run').disabled = false;
+    console.error(err);
+  } finally {
+    if (id === runId) {
+      $('run').disabled = false;
+      if (pool) { pool.close(); pool = null; }
+    }
   }
 }
 

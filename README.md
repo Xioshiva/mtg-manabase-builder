@@ -28,6 +28,7 @@ Command line version:
 node cli.js mydeck.txt                      # check and improve my lands
 node cli.js mydeck.txt --mode build         # ignore my lands, build from scratch
 node cli.js mydeck.txt --games 50000 --play draw --lands 23
+node cli.js mydeck.txt --threads 2          # use 2 CPU threads (default: all)
 node cli.js https://moxfield.com/decks/<id>   # import from Moxfield
 node cli.js "https://www.mtgtop8.com/event?e=<event>&d=<deck>&f=ST"   # import from MTGTop8
 node cli.js test/fixtures/izzet.txt --cards test/fixtures/cards.json   # offline sample
@@ -62,6 +63,8 @@ The builder uses two methods together:
 
 The two manabases you compare play the same shuffled games, so the difference between them is more precise than either ± alone. The search screens swaps on one set of games and confirms them on another, and it only accepts a swap that wins by more than the noise.
 
+Simulations run on every CPU thread your computer has (up to 16 in the browser, 64 on the command line). Each batch of games has its own fixed shuffle seed, and the search stops after a set number of steps rather than after a set time, so the numbers and the suggested lands are exactly the same whether they run on one thread or sixteen; only the speed changes.
+
 ## How the simulator plays
 
 Each turn the bot follows these steps:
@@ -95,11 +98,15 @@ public/lib/importers.js  picks the importer for a deck link
 public/lib/cards.js      Scryfall card -> land / spell model
 public/lib/mana.js       mana costs and payment
 public/lib/sim.js        the game simulator
+public/lib/pool.js       spreads simulations across threads
 public/lib/recommend.js  land count formula, sources needed, basic split
 public/lib/optimize.js   manabase search, land count sweep
 public/lib/analysis.js   puts it all together
 public/lib/formats.js    format rules (add new formats here)
-public/app.js, worker.js the web page (simulation runs in a Web Worker)
+public/app.js            the web page
+public/sim-worker.js     one simulation thread for the web page
 cli.js, server.js        command line tool and static server
+node-pool.js             simulation threads for the command line
+static-file.js           maps page addresses to files for server.js
 scripts/                 real-deck report and card reading checker
 ```
