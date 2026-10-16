@@ -52,10 +52,10 @@ test('land count formula and source estimates are in the expected range', () => 
   assert.ok(need.R >= 13 && need.R <= 16, String(need.R));
 });
 
-test('the optimizer fixes a lopsided two-color manabase', () => {
+test('the optimizer fixes a lopsided two-color manabase', async () => {
   const parsed = parseDecklist(izzetText.replace('8 Island\n6 Mountain', '13 Island\n1 Mountain'));
   const { model } = buildModel(parsed, byName, standard);
-  const r = runAnalysis({ model, games: 2000, candidateCards: [] });
+  const r = await runAnalysis({ model, games: 2000, candidateCards: [] });
   assert.ok(r.suggested.sim.castOnCurve > r.current.sim.castOnCurve + 0.03);
   assert.ok(r.suggested.sources.R > r.current.sources.R);
 });

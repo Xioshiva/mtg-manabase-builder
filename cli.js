@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Command line version: node cli.js deck.txt|moxfield-url|mtgtop8-url [--format standard] [--mode analyze|build]
 //   [--games 5000] [--play both|play|draw] [--lands N] [--no-optimize] [--swap-utility] [--cards cards.json]
+//   [--threads N]
+// --threads sets how many CPU threads run simulations (default: all of them, at most 64).
 // --cards reads Scryfall card JSON from a file instead of the network (lands in it that
 // aren't in the deck are offered to the optimizer).
 import { readFileSync } from 'node:fs';
@@ -9,6 +11,7 @@ import { fetchCollection, searchLands } from './public/lib/scryfall.js';
 import { buildModel, runAnalysis, deckColors } from './public/lib/analysis.js';
 import { getFormat } from './public/lib/formats.js';
 import { recognizeDeckLink, importDeckLink } from './public/lib/importers.js';
+import { createNodeSimulator, parseThreads } from './node-pool.js';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : def; };
@@ -44,11 +47,19 @@ if (optimize && !cardFile) {
     candidateCards = await searchLands(colors, format.legalityKey);
   }
 }
-const r = runAnalysis({
-  model: built.model, mode: opt('--mode', 'analyze'), candidateCards, optimize, keepUtility: !args.includes('--swap-utility'),
-  games: Number(opt('--games', 10000)), play: opt('--play', 'both'), landCount: Number(opt('--lands', 0)) || undefined,
-  onProgress: (p) => process.stderr.write(`\r${p.stage}${p.iter ? ` (step ${p.iter})` : ''}…          `),
-});
+const threads = parseThreads(opt('--threads'));
+const sim = createNodeSimulator(threads);
+process.stderr.write(`Simulating on ${threads} thread${threads === 1 ? '' : 's'}\n`);
+let r;
+try {
+  r = await runAnalysis({
+    model: built.model, mode: opt('--mode', 'analyze'), candidateCards, optimize, keepUtility: !args.includes('--swap-utility'),
+    games: Number(opt('--games', 10000)), play: opt('--play', 'both'), landCount: Number(opt('--lands', 0)) || undefined, sim,
+    onProgress: (p) => process.stderr.write(`\r${p.stage}${p.iter ? ` (step ${p.iter})` : ''}…          `),
+  });
+} finally {
+  sim.close();
+}
 process.stderr.write('\n');
 
 const pct = (x) => (x * 100).toFixed(1).padStart(5) + '%';
@@ -71,7 +82,7 @@ if (r.suggested?.kept.length) console.log(`  kept as they are (they do more than
 const main = r.suggested || r.current;
 console.log(`\n${main.sim.games} games per manabase; ± is the 95% margin of error.`);
 console.log('\nOn-curve castability (when held on its turn):');
-for (const s of main.sim.spells.sort((a, b) => a.cmc - b.cmc)) console.log(`  ${pct(s.onCurve)} ±${(s.onCurveMoe * 100).toFixed(1).padStart(4)}  MV${s.cmc} ${s.copies}x ${s.name}${s.isDraw ? ' (draw)' : ''}${s.costReduction ? ' (cost reduction not modelled)' : ''}${s.curveTurn !== s.cmc ? ` (checked turn ${s.curveTurn})` : ''}`);
+for (const s of main.sim.spells.sort((a, b) => a.cmc - b.cmc)) console.log(`  ${pct(s.onCurve)} ±${(s.onCurveMoe * 100).toFixed(1).padStart(4)}  MV${s.cmc} ${s.copies}x ${s.name}${s.isDraw ? ' (draw)' : ''}${s.domain ? ' (domain, left out of the average)' : s.costReduction ? ' (cost reduction not modelled)' : ''}${s.curveTurn !== s.cmc ? ` (checked turn ${s.curveTurn})` : ''}`);
 console.log('\nLand count sweep:');
 for (const s of r.sweep) console.log(`  ${s.lands} lands: on curve ${pct(s.castOnCurve)} · 4th land T4 ${pct(s.fourthLandOnTurn4)} · flood ${pct(s.floodRate)} · mana by T7 ${s.manaSpent.toFixed(1)}`);
 if (r.drawSpells.length) console.log('\nDraw spells: ' + r.drawSpells.map((d) => `${d.name} (${d.effect})`).join('; '));

@@ -20,8 +20,35 @@
           <button id="importLink" class="secondary">Import</button>
         </div>
       </div>
-      <label for="deck">Decklist <span class="hint">Arena or MTGO export, one card per line</span></label>
-      <textarea id="deck" spellcheck="false" placeholder="Deck&#10;4 Opt&#10;4 Lightning Strike&#10;...&#10;8 Island&#10;8 Mountain"></textarea>
+      <div class="saved">
+        <label for="savedDecks">Saved decks <span class="hint">kept in this browser</span></label>
+        <div class="row">
+          <select id="savedDecks"></select>
+          <button id="deleteDeck" class="secondary" disabled>Delete</button>
+          <input id="deckName" type="text" placeholder="Deck name" aria-label="Deck name">
+          <button id="saveDeck" class="secondary">Save</button>
+          <button id="downloadDeck" class="secondary">Download .txt</button>
+        </div>
+      </div>
+      <div id="deckEditor">
+        <div class="tabs" role="tablist" aria-label="How to show the deck">
+          <button id="viewCards" role="tab" aria-selected="true">Cards</button>
+          <button id="viewText" role="tab" aria-selected="false">Text</button>
+        </div>
+        <div id="cardsView">
+          <div class="row addcard">
+            <input id="addCard" type="text" list="addCardList" placeholder="Add a card by name" aria-label="Add a card by name" autocomplete="off">
+            <datalist id="addCardList"></datalist>
+            <button id="addCardBtn" class="secondary">Add</button>
+          </div>
+          <p class="hint tip">Use + and − to change counts. 🔓 on a land locks it, so the search never swaps it.</p>
+          <div id="editor"></div>
+        </div>
+        <div id="textView" hidden>
+          <label for="deck">Decklist <span class="hint">Arena or MTGO export, one card per line</span></label>
+          <textarea id="deck" spellcheck="false" placeholder="Deck&#10;4 Opt&#10;4 Lightning Strike&#10;...&#10;8 Island&#10;8 Mountain"></textarea>
+        </div>
+      </div>
       <div class="controls">
         <label>Format
           <select id="format"></select>

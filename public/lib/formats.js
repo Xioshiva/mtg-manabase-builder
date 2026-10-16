@@ -9,13 +9,13 @@ export const FORMATS = {
     landFormula: (avg, cheap) => 19.59 + 1.9 * avg - 0.28 * cheap,
   },
   pioneer: {
-    id: 'pioneer', name: 'Pioneer', status: 'preview',
+    id: 'pioneer', name: 'Pioneer', status: 'ready',
     deckSize: 60, maxCopies: 4, handSize: 7, freeMulligan: false, multiplayer: false,
     legalityKey: 'pioneer',
     landFormula: (avg, cheap) => 19.59 + 1.9 * avg - 0.28 * cheap,
   },
   modern: {
-    id: 'modern', name: 'Modern', status: 'preview',
+    id: 'modern', name: 'Modern', status: 'ready',
     deckSize: 60, maxCopies: 4, handSize: 7, freeMulligan: false, multiplayer: false,
     legalityKey: 'modern',
     landFormula: (avg, cheap) => 19.59 + 1.9 * avg - 0.28 * cheap,
