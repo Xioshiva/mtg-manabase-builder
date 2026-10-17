@@ -12,7 +12,7 @@ const colors = (m) => maskToColors(m).join('') || '-';
 const costText = (c) => `${c.generic ? `{${c.generic}}` : ''}${c.pips.map((p) => `{${maskToColors(p).join('/')}}`).join('')}${c.twobrid.map((p) => `{2/${maskToColors(p)}}`).join('')}${c.x ? '{X}'.repeat(c.x) : ''}` || '{0}';
 
 function landReading(L) {
-  const parts = [`makes ${colors(L.mask)} freely`];
+  const parts = [`makes ${colors(L.mask)} freely${L.identity ? " (only the commander's colors)" : ''}`];
   for (const c of L.cond) parts.push(`${colors(c.mask)} only ${c.basicOrFresh ? 'the turn it enters or with a basic' : c.artifacts ? `with ${c.artifacts} artifacts in play` : `with ${colors(c.types)}-type land in play`}`);
   if (L.extra && L.extra.length) parts.push(`${L.extra.length + 1} mana a tap (extra ${L.extra.map(colors).join(', ')})`);
   for (const r of L.restricted) parts.push(`${colors(r.mask)}${r.kind ? ` only for ${r.kind === 'spell' ? 'instants/sorceries' : r.kind} spells` : ''}${r.life ? ` costing ${r.life} life` : ''}`);
@@ -41,7 +41,7 @@ for (const sc of JSON.parse(readFileSync(file, 'utf8'))) {
     if (sp.untapLands) reading.push('MAKES LANDS ENTER UNTAPPED');
     reading.push(`DRAW/SELECTION: ${sp.effect ? describeEffect(sp.effect) : 'none'}`);
     if (sp.treasure) reading.push(`TREASURE: ${sp.treasure.now} now${sp.treasure.upkeep ? `, ${sp.treasure.upkeep} each upkeep` : ''}${sp.treasure.later.length ? `, then on turns +${sp.treasure.later.join(', +')}` : ''}`);
-    if (sp.mana) reading.push(`MANA SOURCE: ${colors(landColors({ ...sp.mana, choices: null, fetch: null }, { restricted: true }))}${sp.mana.extra && sp.mana.extra.length ? `, ${sp.mana.extra.length + 1} mana a tap` : ''}${sp.mana.sick ? ' from next turn (summoning sick)' : ' immediately'}${sp.mana.restricted.length ? `; restricted: ${sp.mana.restricted.map((r) => `${colors(r.mask)} ${r.kind || ''}${r.life ? ` ${r.life} life` : ''}`).join(', ')}` : ''}`);
+    if (sp.mana) reading.push(`MANA SOURCE: ${colors(landColors({ ...sp.mana, choices: null, fetch: null }, { restricted: true }))}${sp.mana.identity ? " (only the commander's colors)" : ''}${sp.mana.extra && sp.mana.extra.length ? `, ${sp.mana.extra.length + 1} mana a tap` : ''}${sp.mana.sick ? ' from next turn (summoning sick)' : ' immediately'}${sp.mana.restricted.length ? `; restricted: ${sp.mana.restricted.map((r) => `${colors(r.mask)} ${r.kind || ''}${r.life ? ` ${r.life} life` : ''}`).join(', ')}` : ''}`);
   }
   if (d.mdfcLand) reading.push(`BACK FACE LAND: ${landReading(d.mdfcLand)}`);
   for (const n of d.notes) reading.push(`NOTE: ${n}`);

@@ -107,7 +107,40 @@ test('Starting Town enters tapped after turn 3', () => {
   assert.ok(r.spells.find((s) => s.name === 'Five').onCurveGivenEnough < 0.95);
 });
 
-const DECK_DIRS = { standard: 'decks', pioneer: 'pioneer', modern: 'modern' };
+test('Duel Commander lands: Mystic Sanctuary, Temple of the False God, City of Traitors', () => {
+  const sanctuary = real('Mystic Sanctuary').land;
+  assert.deepEqual([sanctuary.etb, sanctuary.etbTypes, sanctuary.etbCount], ['typeCount', C.U, 3]);
+  assert.match(landSummary(sanctuary), /untapped with three other Islands/);
+  // With three other Islands out, the fourth enters untapped and a 4-drop comes down on turn 4.
+  const four = simulate({ cards: [real('Mystic Sanctuary', 24), spell('Four', '{4}', 4, 36)], format: standard }, { games: 2000, seed: 3 });
+  assert.ok(four.spells[0].onCurve > 0.5, `${four.spells[0].onCurve}`);
+
+  // Temple of the False God makes {C}{C}, but only once you control five lands.
+  const temple = real('Temple of the False God').land;
+  assert.deepEqual([temple.minLands, temple.extra.length], [5, 1]);
+  assert.deepEqual(real('Temple of the False God').notes, []);
+  const two = simulate({ cards: [real('Temple of the False God', 24), spell('Two', '{2}', 2, 36)], format: standard }, { games: 2000, seed: 3 });
+  assert.ok(two.spells[0].onCurve < 0.05, `${two.spells[0].onCurve}`);
+
+  // City of Traitors is sacrificed when you play another land, so only one stays out.
+  const city = real('City of Traitors').land;
+  assert.equal(city.leavesOnLand, true);
+  assert.equal(city.utility, false);
+  const cities = simulate({ cards: [real('City of Traitors', 24), spell('Six', '{6}', 6, 36)], format: standard }, { games: 2000, seed: 3 });
+  assert.ok(cities.turns[3].avgLands <= 1, `${cities.turns[3].avgLands}`);
+});
+
+test('Command Tower and Arcane Signet make only the commander\'s colors', () => {
+  const parsed = parseDecklist('Commander\n1 Tasigur, the Golden Fang\n\nDeck\n1 Command Tower\n1 Arcane Signet\n');
+  const { model } = buildModel(parsed, byName, getFormat('duel'));
+  const find = (n) => model.cards.find((d) => d.name === n);
+  assert.equal(find('Command Tower').land.mask, C.U | C.B | C.G);
+  assert.equal(find('Arcane Signet').spell.mana.mask, C.U | C.B | C.G);
+  // Without a commander they keep every color (and the deck gets a warning instead).
+  assert.equal(real('Command Tower').land.mask, ANY_COLOR);
+});
+
+const DECK_DIRS = { standard: 'decks', pioneer: 'pioneer', modern: 'modern', duel: 'duel' };
 // Decks whose plan the headline numbers don't describe, so only a looser check applies.
 const UNUSUAL = {
   'amulet-titan-900437.txt': 'bounce lands return a land, so fewer lands stay in play',
@@ -127,7 +160,12 @@ for (const [formatId, sub] of Object.entries(DECK_DIRS)) {
       assert.deepEqual(built.unknown, [], `${file} is missing card data`);
       assert.deepEqual(built.illegal, [], `${file} has cards not legal in ${formatId}`);
       const size = parsed.main.reduce((a, c) => a + c.count, 0);
-      if (formatId === 'standard') assert.equal(size, 60, `${file} should have 60 cards`);
+      if (format.commander) {
+        // The export's sideboard is the commander; with it the deck is exactly 100 cards.
+        assert.ok(built.model.cards.some((d) => d.commander), `${file} has no commander`);
+        assert.equal(built.model.cards.reduce((a, d) => a + d.count, 0), format.deckSize, `${file} should have ${format.deckSize} cards`);
+        assert.ok(!built.warnings.some((w) => w.includes('color identity')), `${file}: ${built.warnings.join(' ')}`);
+      } else if (formatId === 'standard') assert.equal(size, 60, `${file} should have 60 cards`);
       else assert.ok(size >= 60, `${file} should have at least 60 cards`);
       const r = simulate(built.model, { games: 300 });
       if (UNUSUAL[file]) assert.ok(r.castOnCurve > 0.2 && r.turns[2].hitLandDrop > 0.3, `${file}: ${r.castOnCurve}`);

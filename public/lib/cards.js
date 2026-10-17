@@ -31,7 +31,7 @@ function stripReminder(text) {
 
 const PERM_TYPES = ['equipment', 'artifact', 'creature', 'enchantment', 'planeswalker', 'vehicle', 'legendary creature', 'legendary'];
 
-const COUNT_WORDS = { two: 2, three: 3, four: 4, five: 5 };
+const COUNT_WORDS = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7 };
 const ROMAN = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6 };
 
 // Reads "{T}: Add ..." abilities. Free, unconditional mana goes in `mask`; mana that needs
@@ -80,6 +80,10 @@ export function parseManaAbilities(text) {
     const lifeCost = Number(life || 0) + (/deals 1 damage to you/.test(l) ? 1 : 0);
     const condTypes = l.match(/activate only if you control an? (\w+)(?: or an? (\w+))?/);
     const artifacts = l.match(/activate only if you control (two|three|four) or more artifacts/);
+    // Temple of the False God: "Activate only if you control five or more lands."
+    const minLands = l.match(/activate only if you control (two|three|four|five|six|seven) or more lands/);
+    // Command Tower, Arcane Signet: the colors are cut down to the commander's once it is known.
+    if (/any color in your commander's color identity/.test(l)) out.identity = true;
     if (/if a card is exiled with this land, add [^.]+ instead/.test(l)) out.notes.push('Its extra mana needs an exiled card and is not counted');
     if (/activate only if a card is exiled with/.test(l)) {
       out.notes.push('Its mana that needs an exiled card is not counted');
@@ -89,6 +93,10 @@ export function parseManaAbilities(text) {
       out.cond.push({ mask, types: 0, basicOrFresh: true });
     } else if (artifacts) {
       out.cond.push({ mask, types: 0, artifacts: COUNT_WORDS[artifacts[1]] });
+    } else if (minLands) {
+      out.minLands = COUNT_WORDS[minLands[1]];
+      out.mask |= mask;
+      if (extra.length > out.extra.length) out.extra = extra;
     } else if (condTypes && typeBits(condTypes[0])) {
       out.cond.push({ mask, types: typeBits(condTypes[0]) });
     } else if (kind || lifeCost) {
@@ -113,6 +121,7 @@ function isManaLine(l) {
     || /^this land is the chosen type\.?$/.test(l)
     || /^when [^,]+ enters, (?:surveil|scry) \d+\.?$/.test(l)
     || /^when [^,]+ enters, return a land you control to its owner's hand\./.test(l)
+    || /^when you play another land, sacrifice [^.]+\.$/.test(l)
     || /^when [^,]+ enters, (?:sacrifice (?:a|an|one|two|three) (?:untapped )?lands?|add one mana of any color)\.?$/.test(l)
     || GRANTS.test(l)
     || /^(hexproof|indestructible)\.?$/.test(l);
@@ -145,6 +154,7 @@ export function parseLand(face, producedFallback) {
     etb: 'untapped',
     etbTypes: 0,
     etbPerm: null, // permanent type that makes it enter untapped ("unless you control an Equipment")
+    etbCount: 0, // how many lands of etbTypes it needs (Mystic Sanctuary: three other Islands)
     types,
     isBasic: /\bBasic\b/.test(typeLine),
     legendary: /\bLegendary\b/.test(typeLine),
@@ -159,6 +169,9 @@ export function parseLand(face, producedFallback) {
     etbMana: 0, // one mana, this turn only, as it enters (Crumbling Vestige)
     grantTypes: 0, // land types it gives every land (Urborg, Yavimaya)
     leavesAfter: 0, // turns until it is gone (Urza's Saga is sacrificed after chapter III)
+    leavesOnLand: false, // sacrificed when you play another land (City of Traitors)
+    minLands: 0, // makes no mana until you control this many lands (Temple of the False God)
+    identity: false, // makes "any color in your commander's color identity" (Command Tower)
     shockLife: 0, // life paid to have it enter untapped
     utility: false, // does something besides making mana (creature land, card draw, ...)
     notes: [],
@@ -202,6 +215,8 @@ export function parseLand(face, producedFallback) {
   land.cond = mana.cond;
   land.restricted = mana.restricted;
   land.extra = mana.extra;
+  land.minLands = mana.minLands || 0;
+  land.identity = !!mana.identity;
   land.notes.push(...mana.notes);
 
   const chooseOther = lower.match(/choose a color other than (\w+)/);
@@ -238,6 +253,9 @@ export function parseLand(face, producedFallback) {
       land.etb = 'reveal'; land.etbTypes = typeBits(m[0]);
     } else if ((m = lower.match(/unless you control an? (\w+)(?: or an? (\w+))?/)) && typeBits(m[0])) {
       land.etb = 'check'; land.etbTypes = typeBits(m[0]);
+    } else if ((m = lower.match(/unless you control (two|three|four|five) or more other (plains|islands|swamps|mountains|forests)\b/))) {
+      // Mystic Sanctuary: "unless you control three or more other Islands"
+      land.etb = 'typeCount'; land.etbTypes = typeBits(m[2] === 'plains' ? m[2] : m[2].slice(0, -1)); land.etbCount = COUNT_WORDS[m[1]];
     } else if ((m = lower.match(/unless you control an? (legendary creature|[a-z]+)\b/)) && PERM_TYPES.includes(m[1])) {
       land.etb = 'controlPerm'; land.etbPerm = m[1];
     } else if (/unless/.test(lower)) {
@@ -253,6 +271,7 @@ export function parseLand(face, producedFallback) {
   const sac = lower.match(/when [^.]*enters[^.]*, sacrifice (a|an|one|two|three) (untapped )?lands?/);
   if (sac) { land.sacrifice = num(sac[1]); land.sacrificeUntapped = !!sac[2]; }
   if (/when [^.]*enters[^.]*, add one mana of any color/.test(lower)) land.etbMana = ANY_COLOR;
+  if (/when you play another land, sacrifice/.test(lower)) land.leavesOnLand = true;
   land.grantTypes = grantedTypes(text);
   // Urborg is a Swamp itself, so it taps for {B} though its text has no mana ability.
   // Its own types only change on the battlefield (the grant), so a fetch can't find it as a Swamp.
@@ -616,7 +635,8 @@ export function landSummary(land) {
     untapped: 'untapped', shock: 'untapped (pay 2 life)', tapped: 'tapped', fast: 'untapped as one of your first three lands', fastTwo: 'untapped as one of your first two lands',
     slow: 'untapped from your third land', basic: 'untapped with a basic', check: 'untapped with the right land type',
     reveal: 'untapped if you reveal the right land type', multiplayer: 'tapped in 1v1', unknown: 'tapped (unknown condition)',
-    earlyTurns: 'untapped on turns 1-3', lowLife: 'tapped until turn 5', controlPerm: `untapped with ${land.etbPerm ? 'an ' + land.etbPerm : 'the right permanent'}`,
+    earlyTurns: 'untapped on turns 1-3', lowLife: 'tapped until turn 5',
+    typeCount: `untapped with ${['', 'one', 'two', 'three', 'four', 'five'][land.etbCount]} other ${Object.keys(TYPE_BITS).filter((t) => land.etbTypes & TYPE_BITS[t]).map((t) => t[0].toUpperCase() + t.slice(1) + (t === 'plains' ? '' : 's')).join(' or ')}`, controlPerm: `untapped with ${land.etbPerm ? 'an ' + land.etbPerm : 'the right permanent'}`,
     behold: `untapped if you have ${land.etbPerm && /^[aeiou]/.test(land.etbPerm) ? 'an' : 'a'} ${land.etbPerm ? land.etbPerm[0].toUpperCase() + land.etbPerm.slice(1) : ''} in hand or in play`,
   }[land.etb];
   const extras = [];
@@ -634,7 +654,9 @@ export function landSummary(land) {
   if (land.surveil) extras.unshift(`surveil ${land.surveil}`);
   if (land.scry) extras.unshift(`scry ${land.scry}`);
   const mana = 1 + (land.extra || []).length;
-  if (mana > 1) extras.push(`makes ${mana} mana`);
+  if (land.minLands) extras.push(`makes ${mana > 1 ? mana + ' mana' : 'mana'} once you control ${land.minLands} lands`);
+  else if (mana > 1) extras.push(`makes ${mana} mana`);
+  if (land.leavesOnLand) extras.push('sacrificed when you play another land');
   if (land.bounce) extras.push('returns a land to your hand');
   if (land.sacrifice) extras.push(`sacrifice ${land.sacrifice} ${land.sacrificeUntapped ? 'untapped ' : ''}land${land.sacrifice > 1 ? 's' : ''}`);
   return [etb.replace('(pay 2 life)', land.shockLife === 2 ? '(pay 2 life)' : '(pay life)'), ...extras].join(', ');

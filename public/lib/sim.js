@@ -83,8 +83,12 @@ export function simulateChunks(model, opts, from, to) {
   const handSize = fmt.handSize ?? 7;
   const keepRanges = fmt.keepRanges ?? { 7: [2, 5], 6: [2, 4], 5: [1, 4] };
 
-  const deckList = [];
-  defs.forEach((d, i) => { for (let k = 0; k < d.count; k++) deckList.push(i); });
+  // Commanders start in the command zone: never drawn, always there to cast.
+  const deckList = [], commandList = [];
+  defs.forEach((d, i) => {
+    const inCommand = Math.min(d.commander || 0, d.count);
+    for (let k = 0; k < d.count; k++) (k < inCommand ? commandList : deckList).push(i);
+  });
   const landish = defs.map((d) => !!(d.land || d.mdfcLand));
   const trackedSet = new Uint8Array(defs.length);
   for (const i of tracked) trackedSet[i] = 1;
@@ -99,7 +103,7 @@ export function simulateChunks(model, opts, from, to) {
   // A source that makes several mana from one tap (Sol Ring, bounce lands) offers its first
   // mana as itself and the rest as `extra`; `tapped` says the first is spent, bit j of
   // `usedExtra` that extra mana j is. Mana made by one tap can pay for several spells that turn.
-  let lib, hand, bf, perms, turn, pendingDiscard, expiring, expiringNext;
+  let lib, hand, command, bf, perms, turn, pendingDiscard, expiring, expiringNext;
   // Effects of what's in play: land types every land has (Urborg, Leyline of the
   // Guildpact) and whether lands enter untapped (Spelunking).
   let grant = 0, untapAll = false;
@@ -123,6 +127,7 @@ export function simulateChunks(model, opts, from, to) {
 
   // Mana a source can make for a spell of `kind` ('creature' | 'spell' | 'other'; null = any).
   function srcMask(x, kind, freeOnly) {
+    if (x.L.minLands > bf.length) return 0; // Temple of the False God
     let m = x.mask;
     if (x.isLand) m |= grant; // a land that is also a Swamp taps for {B}
     for (const cd of x.L.cond) {
@@ -146,7 +151,7 @@ export function simulateChunks(model, opts, from, to) {
   const allColors = (x) => { let m = srcMask(x, null); for (const e of extraMana(x)) m |= e; return m; };
 
   // Mana after the first that one tap of `x` makes (Sol Ring, Simic Growth Chamber).
-  const extraMana = (x) => x.L.extra || NONE;
+  const extraMana = (x) => (x.L.minLands > bf.length ? NONE : x.L.extra || NONE);
 
   // Untapped sources for a spell of `kind`, one entry per mana (slots: 0 for a source's
   // first mana, j + 1 for its extra mana j). includeTapped ignores mana already spent this
@@ -215,6 +220,7 @@ export function simulateChunks(model, opts, from, to) {
       case 'slow': return bf.length < 2;
       case 'basic': return !bf.some((x) => x.isBasic);
       case 'check': return !bf.some((x) => (x.types | grant) & L.etbTypes);
+      case 'typeCount': return bf.filter((x) => (x.types | grant) & L.etbTypes).length < L.etbCount;
       case 'reveal': return !hand.some((ci) => defs[ci].land && (defs[ci].land.types & L.etbTypes));
       case 'multiplayer': return !fmt.multiplayer;
       case 'earlyTurns': return turn > 3;
@@ -525,7 +531,9 @@ export function simulateChunks(model, opts, from, to) {
       L = defs[ci].land;
     }
     if (best.shock && !best.tapped) st.life += L.shockLife;
-    placeLand(L, best.mask, best.tapped, ci);
+    const src = placeLand(L, best.mask, best.tapped, ci);
+    // City of Traitors: playing another land sacrifices it (tapped for mana first).
+    if (!fromEffect) for (let i = bf.length - 1; i >= 0; i--) if (bf[i] !== src && bf[i].L.leavesOnLand) leaveBattlefield(i);
     return true;
   }
 
@@ -577,11 +585,14 @@ export function simulateChunks(model, opts, from, to) {
     return cheapest === Infinity ? 0 : cheapest;
   }
 
+  // Casts the best spell we can pay for from hand or the command zone. Positions past the
+  // end of the hand are command-zone cards.
   function castOne(onlyDraw) {
     const cache = {};
+    const pool = command.length ? hand.concat(command) : hand;
     let pick = -1, pickScore = -Infinity, pay = null, pickSrc = null;
-    for (let i = 0; i < hand.length; i++) {
-      const d = defs[hand[i]];
+    for (let i = 0; i < pool.length; i++) {
+      const d = defs[pool[i]];
       if (!d.spell || d.spell.noCost) continue;
       if (onlyDraw && !d.spell.effect) continue;
       if (d.spell.legendary && perms.some((p) => p.def === d)) continue; // the legend rule
@@ -589,15 +600,16 @@ export function simulateChunks(model, opts, from, to) {
       const srcs = cache[kind] || (cache[kind] = sourcesFor(kind, false));
       const score = onlyDraw ? -d.spell.cmc : d.spell.cmc * 10 + (d.spell.effect ? 0 : 1) + (d.spell.mana ? 5 : 0);
       if (score <= pickScore) continue;
-      const cost = effectiveCost(d, i);
+      const cost = effectiveCost(d, i < hand.length ? i : -1);
       if (manaNeeded(cost) > srcs.masks.length) continue;
       const p = payCost(srcs.masks, cost, srcs.penalty);
       if (p) { pick = i; pickScore = score; pay = p; pickSrc = srcs; }
     }
     if (pick < 0) return null;
-    const d = defs[hand[pick]];
+    const fromHand = pick < hand.length;
+    const d = defs[pool[pick]];
     const sp = d.spell;
-    const sacrifice = sp.extraCost?.sacrifice && canSkipExtra(sp.extraCost, d, pick);
+    const sacrifice = sp.extraCost?.sacrifice && canSkipExtra(sp.extraCost, d, fromHand ? pick : -1);
     pay.forEach((k, n) => {
       const x = pickSrc.refs[k];
       const slot = pickSrc.slots[k];
@@ -605,7 +617,7 @@ export function simulateChunks(model, opts, from, to) {
       x.tapped = true;
       if (n < pay.pipFor.length) st.life += lifeFor(x, pay.pipFor[n], sp.kind);
     });
-    hand.splice(pick, 1);
+    if (fromHand) hand.splice(pick, 1); else command.splice(pick - hand.length, 1);
     if (sacrifice) {
       // Sacrificed instead of paying the extra mana: give up a spare Treasure or a non-mana permanent first.
       const words = [].concat(sp.extraCost.unlessType);
@@ -690,6 +702,7 @@ export function simulateChunks(model, opts, from, to) {
   function playGame(g) {
     const onPlay = mode === 'both' ? g % 2 === 0 : mode === 'play';
     mulligan();
+    command = commandList.slice();
     bf = [];
     perms = [];
     pendingDiscard = 0;
@@ -739,15 +752,16 @@ export function simulateChunks(model, opts, from, to) {
       // For each spell in hand whose mana value equals this turn: could we cast it now
       // with what's in play (ignoring mana already spent on cantrips this turn)?
       const allBy = {};
-      for (let i = 0; i < hand.length; i++) {
-        const ci = hand[i];
+      const castable = command.length ? hand.concat(command) : hand;
+      for (let i = 0; i < castable.length; i++) {
+        const ci = castable[i];
         const d = defs[ci];
         if (!d.spell || !trackedSet[ci] || curveTurn(d) !== turn || seenTurn[ci] === turn) continue;
         seenTurn[ci] = turn;
         const kind = d.spell.kind;
         const all = allBy[kind] || (allBy[kind] = sourcesFor(kind, true).masks);
         const enough = bf.length >= turn;
-        const ok = payCost(all, effectiveCost(d, i)) !== null;
+        const ok = payCost(all, effectiveCost(d, i < hand.length ? i : -1)) !== null;
         st.inHand[ci]++;
         if (enough) st.enough[ci]++;
         if (ok) { st.onCurve[ci]++; if (enough) st.onCurveGivenEnough[ci]++; }
@@ -836,6 +850,7 @@ function summarize(st, defs, tracked, extra) {
       cmc: defs[i].spell.cmc,
       curveTurn: defs[i].spell.curveTurn ?? defs[i].spell.cmc,
       copies: defs[i].count,
+      commander: !!defs[i].commander,
       isDraw: !!defs[i].spell.effect,
       costReduction: !!defs[i].spell.costReduction,
       domain: !!defs[i].spell.domain,
