@@ -8,7 +8,7 @@ Paste a Magic: The Gathering decklist, or a Moxfield or MTGTop8 deck link, and t
 4. **Searches for a better manabase**. It swaps basics and dual lands legal in your format one at a time and keeps each swap that does better in simulation. Lands that do more than make mana (creature lands, lands that draw or make tokens, graveyard hate) stay as they are, because the simulator can't judge what they're worth. Untick "Keep lands that do more than make mana" (or pass `--swap-utility`) to let the search replace them too. Lands you lock in the deck editor are never swapped.
 5. **Compares land counts** from two fewer to two more lands, looking at land drops, flood and mana spent.
 
-Standard, Pioneer and Modern are supported. Commander is included as a preview (see `public/lib/formats.js`).
+Standard, Pioneer, Modern and Duel Commander are supported. Multiplayer Commander is included as a preview (see `public/lib/formats.js`).
 
 ## Run it
 
@@ -101,6 +101,14 @@ For Pioneer and Modern it also understands:
 - **Domain**: spells that cost less for each basic land type you control (Leyline Binding, Scion of Draco).
 - **The legend rule**: the bot never casts a second copy of a legendary permanent it already has.
 
+For Duel Commander (the 1v1 format once called French Commander):
+
+- **The command zone**: the commander (or both partners) is never drawn and can be cast on any turn. Its row in the results says how often it comes down on curve. Put it under a `Commander` line; an MTGO export's one-card sideboard (what MTGTop8 gives) is read as the commander.
+- **Color identity**: every card must fit the commander's color identity, or a warning names the ones that don't.
+- **1v1 rules**: the first mulligan isn't free, and lands that enter untapped only with two or more opponents enter tapped.
+- **Land count**: Frank Karsten's Commander formula, 31.42 + 3.13 × average mana value − 0.28 × cheap draw and ramp, for the 99 cards besides the commander.
+- MTGTop8 links with `f=EDH` (its code for Duel Commander) and Moxfield decks set to Duel Commander pick the format by themselves.
+
 ## Known limits
 
 - Mana creatures and rocks that need more than a tap to make mana (sacrificing, discarding, tapping other creatures) aren't used as mana. The notes flag them.
@@ -114,7 +122,8 @@ For Pioneer and Modern it also understands:
 - Spells with no mana cost (suspend cards like Ancestral Vision, Living End) are never cast.
 - Alternative costs (evoke, impending, warp, dash, delve) aren't used: a spell is always cast for its mana cost.
 - Effects that sacrifice any number of lands (Scapeshift) or return lands from the graveyard (Lumra) aren't modelled.
-- Commander support is a preview. It doesn't handle commander tax or check color identity yet.
+- Commander tax isn't counted: in a goldfish game the commander is never removed, so it is cast once at its normal cost. Cards banned only as a commander aren't checked.
+- Multiplayer Commander is a preview: it has the command zone and the color identity check, but hasn't been tested on real decks yet.
 
 ## Layout
 

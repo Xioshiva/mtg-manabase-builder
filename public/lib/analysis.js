@@ -13,7 +13,14 @@ export function buildModel(parsed, cardData, format) {
   const unknown = [];
   const illegal = [];
   const warnings = [];
-  const entries = [...parsed.main, ...(parsed.commander || [])];
+  let commanders = parsed.commander || [];
+  // MTGO exports (MTGTop8's included) list the commander as the deck's only sideboard card.
+  if (format.commander && !commanders.length && parsed.sideboard?.length && parsed.sideboard.length <= 2) {
+    commanders = parsed.sideboard;
+    warnings.push(`Using the sideboard (${commanders.map((c) => c.name).join(', ')}) as the commander.`);
+  }
+  const isCommander = new Set(commanders.map((c) => cardKey(c.name)));
+  const entries = [...parsed.main, ...commanders];
   for (const { name, count } of entries) {
     const sc = cardData.get(cardKey(name));
     if (!sc) {
@@ -23,6 +30,7 @@ export function buildModel(parsed, cardData, format) {
       continue;
     }
     const def = normalizeCard(sc, count);
+    if (isCommander.has(cardKey(name))) def.commander = count;
     if (format.legalityKey && sc.legalities && !['legal', 'restricted'].includes(sc.legalities[format.legalityKey]) && !isBasicName(def.name)) {
       illegal.push(def.name);
     }
@@ -33,6 +41,15 @@ export function buildModel(parsed, cardData, format) {
   }
   const total = cards.reduce((a, d) => a + d.count, 0);
   if (total !== format.deckSize) warnings.push(`Deck has ${total} cards; ${format.name} decks are usually ${format.deckSize}.`);
+  if (format.commander) {
+    // Every card must fit the commander's color identity.
+    const identity = new Set(cards.filter((d) => d.commander).flatMap((d) => d.colorIdentity));
+    if (!cards.some((d) => d.commander)) warnings.push('No commander found. Put it under a "Commander" line so it starts in the command zone.');
+    else {
+      const outside = cards.filter((d) => !d.commander && d.colorIdentity.some((c) => !identity.has(c))).map((d) => d.name);
+      if (outside.length) warnings.push(`Outside the commander's color identity: ${outside.join(', ')}.`);
+    }
+  }
   return { model: { cards, format }, unknown, illegal, warnings };
 }
 

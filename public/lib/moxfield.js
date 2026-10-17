@@ -10,7 +10,7 @@ export function moxfieldId(input) {
   return /^[A-Za-z0-9_-]{6,}$/.test(s) ? s : null;
 }
 
-const FORMAT_MAP = { standard: 'standard', pioneer: 'pioneer', modern: 'modern', commander: 'commander' };
+const FORMAT_MAP = { standard: 'standard', pioneer: 'pioneer', modern: 'modern', commander: 'commander', duelCommander: 'duel' };
 
 function boardCards(deck, board) {
   // v3: deck.boards.mainboard.cards = { key: { quantity, card: { name } } }

@@ -55,7 +55,7 @@ export function sourcesNeeded(format, landCount, cards, target = 0.9) {
       if (!k) continue;
       const seen = format.handSize + turn - 1;
       let s = k;
-      while (s < landCount && sourceProbability(format.deckSize, landCount, s, seen, k, turn) < target) s++;
+      while (s < landCount && sourceProbability(format.librarySize ?? format.deckSize, landCount, s, seen, k, turn) < target) s++;
       if (s > need[c]) { need[c] = s; why[c] = `${d.name}: ${('{' + c + '}').repeat(k)} on turn ${turn}`; }
     }
   }
