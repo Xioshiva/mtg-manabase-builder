@@ -1,0 +1,37 @@
+4 Endurance
+4 Oliphaunt
+4 Shardless Agent
+4 Street Wraith
+4 Subtlety
+4 Wistfulness
+3 Generous Ent
+2 Curator of Mysteries
+2 Striped Riverwinder
+1 Colossal Skyturtle
+1 Waker of Waves
+4 Force of Negation
+4 Violent Outburst
+1 Sink into Stupor
+1 Valakut Awakening
+3 Living End
+4 Misty Rainforest
+1 Breeding Pool
+1 Commercial District
+1 Forest
+1 Hedge Maze
+1 Island
+1 Sacred Foundry
+1 Steam Vents
+1 Stomping Ground
+1 Temple Garden
+1 Thundering Falls
+
+Sideboard
+3 Clarion Conqueror
+3 Mystical Dispute
+3 Teferi, Time Raveler
+2 Force of Vigor
+1 Dismember
+1 Faerie Macabre
+1 High Noon
+1 Ingot Chewer

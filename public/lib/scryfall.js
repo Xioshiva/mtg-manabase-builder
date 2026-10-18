@@ -56,9 +56,36 @@ export async function searchLands(colors, legalityKey, { fetchImpl = globalThis.
 
 // Keep only the fields the builder reads, so card data is small enough to cache.
 const FIELDS = ['name', 'layout', 'mana_cost', 'cmc', 'type_line', 'oracle_text', 'produced_mana', 'color_identity', 'legalities'];
+const IMAGE_SIZES = ['small', 'normal'];
+
+// { small, normal } from Scryfall's image_uris, or undefined when it has neither.
+function trimImages(uris) {
+  if (!uris) return undefined;
+  const out = {};
+  for (const s of IMAGE_SIZES) if (uris[s]) out[s] = uris[s];
+  return Object.keys(out).length ? out : undefined;
+}
+
 export function trimCard(c) {
   const out = {};
   for (const f of FIELDS) if (c[f] !== undefined) out[f] = c[f];
-  if (c.card_faces) out.card_faces = c.card_faces.map((f) => ({ name: f.name, mana_cost: f.mana_cost, cmc: f.cmc, type_line: f.type_line, oracle_text: f.oracle_text }));
+  const images = trimImages(c.image_uris);
+  if (images) out.image_uris = images;
+  if (c.card_faces) {
+    out.card_faces = c.card_faces.map((f) => {
+      const face = { name: f.name, mana_cost: f.mana_cost, cmc: f.cmc, type_line: f.type_line, oracle_text: f.oracle_text };
+      const faceImages = trimImages(f.image_uris);
+      if (faceImages) face.image_uris = faceImages;
+      return face;
+    });
+  }
   return out;
+}
+
+// URL of the card's front image at that size ('small' or 'normal' after trimCard), or null.
+// Double-faced cards keep their images on each face instead of the card.
+export function cardImage(card, size = 'normal') {
+  if (!card) return null;
+  const uris = card.image_uris || (card.card_faces && card.card_faces[0] && card.card_faces[0].image_uris);
+  return (uris && uris[size]) || null;
 }
