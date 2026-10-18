@@ -93,7 +93,7 @@ export function simulateChunks(model, opts, from, to) {
   // What a hand counts as lands when deciding to keep it: Commander decks also count cheap
   // rocks and dorks that keep making mana (Sol Ring, Arcane Signet, Llanowar Elves), not
   // one-use ones (Lotus Petal, Mana Vault) or Mox Diamond, which costs a land.
-  const rock = (d) => { const m = d.spell?.mana; return !!m && d.spell.cmc <= 2 && !!m.mask && !m.oneShot && !m.noUntap && !d.spell.discardLand; };
+  const rock = (d) => { const m = d.spell?.mana; return !!m && d.spell.cmc <= 2 && !!(m.mask || m.restricted.some((r) => r.kind === null)) && !m.oneShot && !m.noUntap && !d.spell.discardLand; };
   const keepish = defs.map((d, i) => landish[i] || (!!fmt.keepCountsRocks && rock(d)));
   const trackedSet = new Uint8Array(defs.length);
   for (const i of tracked) trackedSet[i] = 1;
@@ -146,7 +146,7 @@ export function simulateChunks(model, opts, from, to) {
         // Filter lands (Fetid Heath) turn one mana of their colors into two, so another source
         // of those colors must be out.
         const feeds = (y) => {
-          if (y === x || !y.isSource || (!y.isLand && turn < y.readyTurn)) return false;
+          if (y === x || !y.isSource || y.etbTapped || (!y.isLand && turn < y.readyTurn)) return false;
           let c = y.mask | (y.isLand ? grant : 0);
           for (const r of y.L.restricted) if (r.kind === null) c |= r.mask;
           for (const o of y.L.cond) if (!o.source) c |= o.mask;
@@ -182,7 +182,7 @@ export function simulateChunks(model, opts, from, to) {
       if (m && (includeTapped || !x.tapped)) {
         masks.push(m); refs.push(x); slots.push(0);
         // Avoid paying life, and keep Treasures for when nothing else will do.
-        penalty.push(x.isTreasure ? 2 : x.L.restricted.some((r) => r.life) ? 1 : 0);
+        penalty.push(x.isTreasure ? 2 : x.L.tapLife || x.L.restricted.some((r) => r.life) ? 1 : 0);
       }
       const extra = extraMana(x);
       for (let j = 0; j < extra.length; j++) {
@@ -634,9 +634,11 @@ export function simulateChunks(model, opts, from, to) {
     pay.forEach((k, n) => {
       const x = pickSrc.refs[k];
       const slot = pickSrc.slots[k];
+      // City of Brass, Ancient Tomb: life on every tap, whatever the mana pays for.
+      if (x.L.tapLife && !x.tapped && !x.usedExtra) st.life += x.L.tapLife;
       if (slot) { x.usedExtra |= 1 << (slot - 1); return; }
       x.tapped = true;
-      if (n < pay.pipFor.length) st.life += lifeFor(x, pay.pipFor[n], sp.kind);
+      if (!x.L.tapLife && n < pay.pipFor.length) st.life += lifeFor(x, pay.pipFor[n], sp.kind);
     });
     if (fromHand) hand.splice(pick, 1);
     else if (fmt.oneCommanderCast) command.length = 0; // Duel Commander: one commander from the command zone per game
@@ -697,9 +699,12 @@ export function simulateChunks(model, opts, from, to) {
       hand = lib.splice(lib.length - handSize, handSize);
       const charged = fmt.freeMulligan && mulls > 0 ? mulls - 1 : mulls;
       const size = handSize - charged;
+      // Cheap rocks and dorks count toward the lands a hand needs, but not toward too many
+      // lands, and a hand still needs a land to cast them.
       const lands = hand.filter((ci) => keepish[ci]).length;
+      const realLands = hand.filter((ci) => landish[ci]).length;
       const range = keepRanges[size];
-      if (!range || (lands >= range[0] && lands <= range[1])) {
+      if (!range || (lands >= range[0] && realLands <= range[1] && realLands >= 1)) {
         for (let k = 0; k < charged; k++) {
           const landCount = hand.filter((ci) => landish[ci]).length;
           let pick = -1;

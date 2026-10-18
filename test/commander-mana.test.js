@@ -103,17 +103,39 @@ test('Fellwar Stone, Exotic Orchard and Mox Amber make the commander\'s colors',
   assert.ok(withAmber.turns[5].manaSpent > without.turns[5].manaSpent + 0.3, `${withAmber.turns[5].manaSpent} vs ${without.turns[5].manaSpent}`);
 });
 
-test('Bloom Tender and Faeburrow Elder make one mana of their own colors', () => {
+test('Bloom Tender and Faeburrow Elder make one mana of each of their own colors', () => {
   assert.equal(real('Bloom Tender').spell.mana.mask, C.G);
-  assert.equal(real('Faeburrow Elder').spell.mana.mask, C.G | C.W);
+  const fae = real('Faeburrow Elder').spell.mana;
+  assert.deepEqual([fae.mask, fae.extra], [C.W, [C.G]]);
 });
 
-test('lands that deal damage: colored mana costs life, Ancient Tomb stays two free {C}', () => {
-  assert.deepEqual(real('City of Brass').land.restricted, [{ mask: ANY_COLOR, kind: null, life: 1 }]);
-  assert.equal(real('City of Brass').land.utility, false);
-  assert.deepEqual(real('Tarnished Citadel').land.restricted, [{ mask: ANY_COLOR, kind: null, life: 3 }]);
+test("Jegantha's five mana can't pay generic costs, so it counts as one", () => {
+  const j = real('Jegantha, the Wellspring').spell.mana;
+  assert.deepEqual([j.mask, j.extra], [ANY_COLOR, []]);
+});
+
+test("Shang-Chi's mana only activates abilities, so it casts nothing", () => {
+  const s = real('Shang-Chi, Master of Kung Fu');
+  assert.equal(s.spell.mana.mask, 0);
+  assert.deepEqual(s.spell.mana.restricted, [{ mask: ANY_COLOR, kind: 'unknown', life: 0 }]);
+  assert.ok(s.notes.some((n) => /activating abilities is ignored/.test(n)));
+  // Sanctum Weaver is an enchantment itself, so its X is at least one.
+  assert.equal(real('Sanctum Weaver').spell.mana.mask, ANY_COLOR);
+});
+
+test('City of Brass, Mana Confluence and Ancient Tomb cost life on every tap; Tarnished Citadel only for colors', () => {
+  const brass = real('City of Brass').land;
+  assert.deepEqual([brass.mask, brass.tapLife, brass.utility], [ANY_COLOR, 1, false]);
+  assert.match(landSummary(brass), /each tap costs 1 life/);
+  assert.equal(real('Mana Confluence').land.tapLife, 1);
+  const citadel = real('Tarnished Citadel').land;
+  assert.deepEqual([citadel.tapLife, citadel.restricted], [0, [{ mask: ANY_COLOR, kind: null, life: 3 }]]);
   const tomb = real('Ancient Tomb').land;
-  assert.deepEqual([tomb.mask, tomb.extra.length, tomb.restricted.length], [C.C, 1, 0]);
+  assert.deepEqual([tomb.mask, tomb.extra.length, tomb.restricted.length, tomb.tapLife], [C.C, 1, 0, 2]);
+  // Life is paid even when the mana pays a generic cost.
+  const life = (land) => simulate({ cards: [real(land, 30), spell('Three', '{3}', 3, 30)], format: standard }, { games: 2000, seed: 4 }).lifePaidPerGame;
+  assert.ok(life('City of Brass') > 10, `${life('City of Brass')}`);
+  assert.ok(life('Ancient Tomb') > 10, `${life('Ancient Tomb')}`);
 });
 
 test('Fanatic of Rhonas: only its {G} is counted; Vesuva makes no mana', () => {
@@ -122,6 +144,16 @@ test('Fanatic of Rhonas: only its {G} is counted; Vesuva makes no mana', () => {
   assert.ok(fanatic.notes.some((n) => /power 4 or greater/.test(n)));
   assert.ok(real('Vesuva').notes.some((n) => /Copying another land/.test(n)));
   assert.deepEqual(real('Echoing Deeps').notes, []);
+});
+
+test('Commander hands keep with rocks, but not with no land or with too many lands', () => {
+  const leader = { ...normalizeCard({ name: 'Leader', mana_cost: '{2}{G}', cmc: 3, type_line: 'Legendary Creature — Elf', oracle_text: '', color_identity: ['G'] }, 1), commander: 1 };
+  // No lands: three Llanowar Elves can't be cast, so every hand goes back down to four cards.
+  const elves = simulate({ cards: [leader, real('Llanowar Elves', 50), spell('Four', '{3}{G}', 4, 49)], format: commander }, { games: 500, seed: 4 });
+  assert.ok(elves.mulliganRate > 3.9, `${elves.mulliganRate}`);
+  // Lands and Signets only: rocks don't make a hand flood, so most hands are kept.
+  const flood = simulate({ cards: [leader, basicLandDef('G', 50), real('Arcane Signet', 49)], format: commander }, { games: 500, seed: 4 });
+  assert.ok(flood.mulliganRate < 0.3, `${flood.mulliganRate}`);
 });
 
 test('Commander hands count cheap rocks and dorks as lands when deciding to keep', () => {
@@ -138,7 +170,9 @@ test('Commander hands count cheap rocks and dorks as lands when deciding to keep
 
 test('Signets and Shadowblood Ridge turn {1} into two colors', () => {
   assert.equal(real('Rakdos Signet').spell.mana.mask, C.B | C.R);
-  assert.equal(real('Shadowblood Ridge').land.mask, C.B | C.R);
+  // Shadowblood Ridge needs {1} from another source to filter.
+  const ridge = real('Shadowblood Ridge').land;
+  assert.deepEqual([ridge.mask, ridge.cond], [0, [{ mask: C.B | C.R, types: 0, source: ANY_COLOR | C.C }]]);
   // Mountains alone never make {B}; with Signets out, {2}{B} spells come down.
   const deck = (rock) => ({ cards: [rock, basicLandDef('R', 30), spell('Three', '{2}{B}', 3, 50)], format: standard });
   const signets = simulate(deck(real('Rakdos Signet', 20)), { games: 2000, seed: 4 });
@@ -172,11 +206,22 @@ test('filter lands make their colors only with another source of them', () => {
   // Fed by a Swamp, Fetid Heath makes {W}; two filter lands can't feed each other.
   assert.ok(white([real('Fetid Heath', 30), basicLandDef('B', 30)]) > 0.5);
   assert.equal(white([real('Fetid Heath', 60)]), 0);
+  // An Odyssey filter land needs {1} from another source.
+  const catacombs = real('Darkwater Catacombs').land;
+  assert.deepEqual([catacombs.mask, catacombs.cond], [0, [{ mask: C.U | C.B, types: 0, source: ANY_COLOR | C.C }]]);
+  const blue = (lands) => simulate({ cards: [...lands, spell('Two', '{1}{U}', 2, 40)], format: standard }, { games: 2000, seed: 4 }).castOnCurve;
+  assert.equal(blue([real('Darkwater Catacombs', 60)]), 0);
+  assert.ok(blue([real('Darkwater Catacombs', 30), basicLandDef('R', 30)]) > 0.6);
 });
 
-test('Fertile Ground counts as a mana source from the next turn', () => {
+test('Fertile Ground and Wild Growth count as a mana source from the next turn', () => {
   const ground = real('Fertile Ground').spell.mana;
   assert.deepEqual([ground.mask, ground.sick], [ANY_COLOR, true]);
+  const growth = real('Wild Growth').spell.mana;
+  assert.deepEqual([growth.mask, growth.sick], [C.G, true]);
+  // A rock that names a color as it enters makes that color.
+  const heart = normalizeCard({ name: 'Heart', mana_cost: '{2}', cmc: 2, type_line: 'Artifact', oracle_text: 'This artifact enters tapped.\nAs this artifact enters, choose a color.\n{T}: Add one mana of the chosen color.' }, 1);
+  assert.deepEqual([heart.spell.mana.mask, heart.spell.mana.sick], [ANY_COLOR, true]);
   const deck = (two) => ({ cards: [two, basicLandDef('G', 30), spell('Four', '{3}{G}', 4, 50)], format: standard });
   const aura = simulate(deck(real('Fertile Ground', 20)), { games: 2000, seed: 4 });
   const bears = simulate(deck(spell('Bear', '{1}{G}', 2, 20)), { games: 2000, seed: 4 });
@@ -188,7 +233,10 @@ test('mana the simulator leaves out is named in the notes', () => {
   noted("Ashnod's Altar", /needs another resource/);
   noted('Cabal Coffers', /needs another resource/);
   noted('Abundant Growth', /gives other permanents is not modelled/);
-  noted('Crypt Ghast', /when you tap a permanent for mana is not counted/);
+  for (const n of ['Crypt Ghast', 'Kinnan, Bonder Prodigy', 'Nyxbloom Ancient']) noted(n, /when you tap a permanent for mana is not counted/);
+  noted('Chromatic Lantern', /gives other permanents is not modelled/);
+  // Chandra's "[+1]: Add {R}{R}" is a loyalty ability, not a mana ability that needs something else.
+  assert.deepEqual(real('Chandra, Torch of Defiance').notes, []);
   noted('Jet Medallion', /other spells cheaper is not modelled/);
   // Séance Board makes X mana for its soul counters, so nothing at first.
   assert.equal(real('Séance Board').spell.mana, null);

@@ -65,7 +65,7 @@ node scripts/explain-cards.js                  # each card's rules text next to 
 - **Colors OK when you had the lands**: the same measure, but only for games where you had enough lands. A low number points to a color or tapped-land problem rather than a land count problem.
 - **Mana spent by turn 7**: the total mana the bot actually used. Missed land drops, tapped lands and flood all lower it.
 - **Flooded**: games where you drew at least four more lands than the deck needs by turn 7.
-- **Life paid**: life spent on shocklands played untapped, fetching, and lands that cost life for colored mana (painlands, Starting Town).
+- **Life paid**: life spent on shocklands played untapped, fetching, lands that cost life for colored mana (painlands, Starting Town), and lands that cost life on every tap (City of Brass, Mana Confluence, Ancient Tomb).
 
 ## How accurate it is
 
@@ -114,21 +114,21 @@ For multiplayer Commander:
 
 - **The command zone and color identity** work as in Duel Commander, except that both partners can be cast from the command zone.
 - **Multiplayer rules**: the first mulligan is free, and lands that enter untapped with two or more opponents do so.
-- **Keeping hands**: a seven-card hand is kept with three to five lands, and a smaller one with two to four. In both Commander formats a mana rock or mana creature that costs 2 or less counts as a land for this, unless it makes its mana only once (Mana Vault, Lotus Petal) or costs a land card (Mox Diamond).
+- **Keeping hands**: a seven-card hand is kept with three to five lands, and a smaller one with two to four. In both Commander formats a mana rock or mana creature that costs 2 or less counts toward the lowest number, unless it makes its mana only once (Mana Vault, Lotus Petal), costs a land card (Mox Diamond) or needs something else on the board (Mox Amber). Only lands count toward the highest number, and a hand with no land is never kept.
 - **Land count**: the same Karsten formula as Duel Commander. It is meant for casual decks: on the 4 casual decks it suggests 2 or 3 more lands than they play (40 against 43 for the five-color precon). The cEDH decks play 25 to 28 lands and lean on fast mana, so the formula suggests 6 to 9 more than they play. The Lumra deck plays 50 lands because its commander is built around them.
 - **Legality** uses the Commander banned list as of the February 9, 2026 announcement.
 - MTGTop8 links with `f=cEDH` (its code for multiplayer Commander) and Moxfield decks set to Commander pick the format by themselves.
 
 These mana pieces, common in Commander, are understood in every format:
 
-- **Fast mana**: Mana Vault and Grim Monolith don't untap, so their mana is counted once. Lotus Petal and other cards that sacrifice themselves for mana are used once, like a Treasure. Rituals (Dark Ritual, Rite of Flame) add their mana until the end of the turn. Mox Diamond is cast only with a land card in hand to discard.
-- **Mana that depends on the board**: Gaea's Cradle and Circle of Dreams Druid count as one mana once you control a creature. Mox Amber makes mana once a legendary creature or planeswalker is out. Bloom Tender and Faeburrow Elder make one mana of their own colors. Fellwar Stone and Exotic Orchard are counted as making the commander's colors.
-- **Lands**: City of Brass and Tarnished Citadel cost life for colored mana. Battle lands (Prairie Stream) enter untapped with two basics. Signets and the Odyssey filter lands (Darkwater Catacombs) count as one mana of either of their colors. Shadowmoor filter lands (Fetid Heath) do the same once another source of their colors is out.
+- **Fast mana**: Mana Vault and Grim Monolith don't untap, so their mana is counted once. Lotus Petal and other cards that tap and sacrifice themselves for mana are used once, like a Treasure. Rituals (Dark Ritual, Rite of Flame) add their mana until the end of the turn. Mox Diamond is cast only with a land card in hand to discard.
+- **Mana that depends on the board**: Gaea's Cradle and Circle of Dreams Druid count as one mana once you control a creature. Mox Amber makes mana once a legendary creature or planeswalker is out. Bloom Tender and Faeburrow Elder make one mana of each of their own colors. Fellwar Stone and Exotic Orchard are counted as making the commander's colors. Jegantha counts as one mana, because the rest of its mana can't pay generic costs.
+- **Lands**: City of Brass, Mana Confluence and Ancient Tomb cost life on every tap, and Tarnished Citadel only for colored mana. Battle lands (Prairie Stream) enter untapped with two basics. Signets count as one mana of either of their colors. Filter lands do the same once another land or rock can pay to filter: any mana for the Odyssey ones (Darkwater Catacombs), and mana of one of their colors for the Shadowmoor ones (Fetid Heath).
 - **Land auras** like Fertile Ground and Utopia Sprawl count as a mana source from the turn after they are cast.
 
 ## Known limits
 
-- Mana creatures and rocks that need more than a tap to make mana (sacrificing, discarding, tapping other creatures) aren't used as mana. The notes flag them.
+- Apart from the pieces above, mana creatures and rocks that need more than a tap to make mana (sacrificing another permanent, discarding, tapping other creatures) aren't used as mana. The notes flag them.
 - Card data from Scryfall must be reachable from your browser. Decks from MTGTop8 use the same names as Scryfall, including double-faced cards written as "Front/Back".
 - Draw effects are read from rules text. Check the "Draw and selection spells" table to see what was detected. Draws that depend on the opponent, on sacrificing something, or on which colors paid for the spell aren't counted; the notes list them.
 - The search only values mana. It can't tell how good a creature land or a utility land is, which is why it keeps them by default.
@@ -140,8 +140,8 @@ These mana pieces, common in Commander, are understood in every format:
 - Alternative costs (evoke, impending, warp, dash, delve) aren't used: a spell is always cast for its mana cost.
 - Effects that sacrifice any number of lands (Scapeshift) or return lands from the graveyard (Lumra) aren't modelled.
 - Commander tax isn't counted: in a goldfish game the commander is never removed, so it is cast once at its normal cost. Cards banned only as a commander aren't checked.
-- cEDH decks keep many one- and two-land hands with fast mana that the bot sends back, so their mulligan rate is high. Mana from combo and engine pieces isn't modelled: Lion's Eye Diamond, Chrome Mox, the spirit guides and altars (the notes flag these), and Smothering Tithe, Deathrite Shaman and Carpet of Flowers.
-- Mana doublers (Crypt Ghast, Nissa, Who Shakes the World), cards that make other spells cheaper (the Medallions), and mana abilities a card gives to other permanents (Abundant Growth) aren't counted. The notes list these too.
+- cEDH decks often keep hands the bot sends back: it wants three lands or cheap rocks, and those decks keep with fewer, so their mulligan rate is high. Mana from combo and engine pieces isn't modelled: Lion's Eye Diamond, Chrome Mox, the spirit guides and altars (the notes flag these), and Smothering Tithe, Deathrite Shaman and Carpet of Flowers.
+- Mana doublers (Crypt Ghast, Nissa, Who Shakes the World, Kinnan, Nyxbloom Ancient), cards that make other spells cheaper (the Medallions), mana abilities a card gives to other permanents (Abundant Growth, Chromatic Lantern), and mana that only pays for abilities (Shang-Chi) aren't counted. The notes list these too.
 
 ## Layout
 
