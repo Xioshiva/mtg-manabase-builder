@@ -47,6 +47,9 @@ export function sourceProbability(deckSize, lands, sources, seen, need, landsNee
 export function sourcesNeeded(format, landCount, cards, target = 0.9) {
   const need = { W: 0, U: 0, B: 0, R: 0, G: 0 };
   const why = {};
+  // The library is what's left after the commander; partners leave 98 cards.
+  const commanders = cards.reduce((a, d) => a + (d.count && d.commander ? d.commander : 0), 0);
+  const library = (format.librarySize ?? format.deckSize) - Math.max(0, commanders - 1);
   for (const d of cards) {
     if (!d.count || !d.spell || d.filler) continue;
     const turn = Math.min(7, Math.max(1, Math.round(d.spell.cmc)));
@@ -55,7 +58,7 @@ export function sourcesNeeded(format, landCount, cards, target = 0.9) {
       if (!k) continue;
       const seen = format.handSize + turn - 1;
       let s = k;
-      while (s < landCount && sourceProbability(format.librarySize ?? format.deckSize, landCount, s, seen, k, turn) < target) s++;
+      while (s < landCount && sourceProbability(library, landCount, s, seen, k, turn) < target) s++;
       if (s > need[c]) { need[c] = s; why[c] = `${d.name}: ${('{' + c + '}').repeat(k)} on turn ${turn}`; }
     }
   }

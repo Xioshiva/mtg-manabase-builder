@@ -49,7 +49,8 @@ export function parseManaAbilities(text) {
     const m = l.match(/^\{t\}((?:, [^:]+)?): add (.+)$/);
     if (!m) continue;
     const cost = m[1];
-    if (/tap an untapped|sacrifice|discard|exile|\{\d|\{[wubrgc]\}/.test(cost)) {
+    // Everflowing Chalice: "Add {C} for each charge counter" makes nothing without counters.
+    if (/tap an untapped|sacrifice|discard|exile|\{\d|\{[wubrgc]\}/.test(cost) || /for each charge counter/.test(m[2])) {
       out.unusable = true; // needs another resource; not counted as a mana source
       continue;
     }

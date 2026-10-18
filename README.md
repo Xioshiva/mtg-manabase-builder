@@ -103,10 +103,10 @@ For Pioneer and Modern it also understands:
 
 For Duel Commander (the 1v1 format once called French Commander):
 
-- **The command zone**: the commander (or both partners) is never drawn and can be cast on any turn. Its row in the results says how often it comes down on curve. Put it under a `Commander` line; an MTGO export's one-card sideboard (what MTGTop8 gives) is read as the commander.
+- **The command zone**: the commander is never drawn and can be cast on any turn. With partners, both start there, but only the first one cast can come from the command zone (Duel Commander rule 404.1). Its row in the results says how often it comes down on curve. Put it under a `Commander` line; an MTGO export's one- or two-card sideboard (what MTGTop8 gives) is read as the commander.
 - **Color identity**: every card must fit the commander's color identity, or a warning names the ones that don't.
 - **1v1 rules**: the first mulligan isn't free, and lands that enter untapped only with two or more opponents enter tapped.
-- **Land count**: Frank Karsten's Commander formula, 31.42 + 3.13 × average mana value − 0.28 × cheap draw and ramp, for the 99 cards besides the commander. On the 9 real decks it is within 3 lands of the deck's own count for 5 of them. Cantrip-heavy and land-matters decks play up to 7 more (Jace 41 against 34, Toph 42 against 36), and the Terra reanimator deck 7 fewer (35 against 42) because it puts its big creatures into play without casting them.
+- **Land count**: Frank Karsten's Commander formula, 31.42 + 3.13 × average mana value − 0.28 × cheap draw and ramp. The average and the count cover every nonland card, the commander included, and the result is the number of lands among the 99. On the 9 real decks it is within 3 lands of the deck's own count for 5 of them. Cantrip-heavy and land-matters decks play up to 7 more (Jace 41 against 34, Toph 42 against 36), and the Terra reanimator deck 7 fewer (35 against 42) because it puts its big creatures into play without casting them.
 - **Commander lands**: Command Tower, Path of Ancestry and Arcane Signet make only the commander's colors. Mystic Sanctuary enters untapped with three other Islands, Temple of the False God makes {C}{C} once you control five lands, and City of Traitors is sacrificed (after being tapped for mana) when you play another land.
 - MTGTop8 links with `f=EDH` (its code for Duel Commander) and Moxfield decks set to Duel Commander pick the format by themselves.
 

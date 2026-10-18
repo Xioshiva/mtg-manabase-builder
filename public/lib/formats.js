@@ -21,11 +21,12 @@ export const FORMATS = {
     landFormula: (avg, cheap) => 19.59 + 1.9 * avg - 0.28 * cheap,
   },
   // Duel Commander (once called French Commander): 1v1, 20 life, its own banned list and
-  // the usual mulligan. The commander starts in the command zone (librarySize leaves it out).
+  // the usual mulligan. The commander starts in the command zone (librarySize leaves it out),
+  // and with partners only the first one cast may come from the command zone.
   duel: {
     id: 'duel', name: 'Duel Commander', status: 'ready',
     deckSize: 100, librarySize: 99, maxCopies: 1, handSize: 7, freeMulligan: false, multiplayer: false,
-    commander: true,
+    commander: true, oneCommanderCast: true,
     legalityKey: 'duel',
     landFormula: (avg, cheap) => 31.42 + 3.13 * avg - 0.28 * cheap,
   },

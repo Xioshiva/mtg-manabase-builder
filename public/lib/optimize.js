@@ -118,7 +118,7 @@ export async function landCountSweep(model, deltas, opts = {}) {
         cards[b[b.length - 1]].count++;
         let worst = -1;
         cards.forEach((d, i) => {
-          if (d.spell && !d.filler && d.count > 0 && (worst < 0 || d.spell.cmc > cards[worst].spell.cmc)) worst = i;
+          if (d.spell && !d.filler && !d.commander && d.count > 0 && (worst < 0 || d.spell.cmc > cards[worst].spell.cmc)) worst = i;
         });
         if (worst < 0) { ok = false; break; }
         cards[worst].count--;

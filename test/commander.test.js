@@ -4,7 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeCard, basicLandDef } from '../public/lib/cards.js';
 import { simulate } from '../public/lib/sim.js';
-import { buildModel } from '../public/lib/analysis.js';
+import { buildModel, commandersOf } from '../public/lib/analysis.js';
+import { landCountSweep } from '../public/lib/optimize.js';
 import { parseDecklist, cardKey } from '../public/lib/decklist.js';
 import { getFormat } from '../public/lib/formats.js';
 import { parseMtgtop8Url, fetchMtgtop8Deck } from '../public/lib/mtgtop8.js';
@@ -38,6 +39,42 @@ test('the commander is always there to cast and never drawn', () => {
   assert.equal(lead(zone).commander, true);
   assert.ok(lead(drawn).inHand < 0.15, `${lead(drawn).inHand}`);
   assert.ok(lead(zone).onCurve > 0.9, `${lead(zone).onCurve}`);
+});
+
+test('the bot plays the land that lets the commander come down', () => {
+  // Nothing in hand is castable on turn 2, so only the commander tells an untapped land from a tapped one.
+  const commander = { ...normalizeCard(card('Leader', '{1}{R}', 2, 'Legendary Creature — Goblin', ['R']), 1), commander: 1 };
+  const tapland = normalizeCard(card('Tapland', '', 0, 'Land', ['R'], { oracle_text: 'This land enters tapped.\n{T}: Add {R}.' }), 19);
+  const rest = [basicLandDef('R', 19), tapland, normalizeCard(card('Filler', '{5}', 5, 'Artifact'), 61)];
+  const r = simulate({ cards: [commander, ...rest], format: duel }, { games: 2000, seed: 5 });
+  assert.ok(r.spells.find((s) => s.name === 'Leader').onCurve > 0.8, `${r.spells.find((s) => s.name === 'Leader').onCurve}`);
+});
+
+test('Duel Commander lets only one partner come from the command zone', () => {
+  const partner = (name) => ({ ...normalizeCard(card(name, '{1}{R}', 2, 'Legendary Creature — Human', ['R']), 1), commander: 1 });
+  const cards = [partner('Left'), partner('Right'), basicLandDef('R', 38), normalizeCard(card('Filler', '{6}', 6, 'Artifact'), 60)];
+  const one = simulate({ cards, format: duel }, { games: 2000, seed: 5 });
+  const both = simulate({ cards, format: { ...duel, oneCommanderCast: false } }, { games: 2000, seed: 5 });
+  // On turn 3 the second partner is the only thing to cast, and Duel Commander doesn't allow it.
+  assert.ok(both.turns[2].manaSpent > one.turns[2].manaSpent + 1.5, `${both.turns[2].manaSpent} vs ${one.turns[2].manaSpent}`);
+});
+
+test('a land-count sweep never cuts the commander', async () => {
+  const commander = { ...normalizeCard(card('Big Leader', '{6}{R}', 7, 'Legendary Creature — Giant', ['R']), 1), commander: 1 };
+  const model = { cards: [commander, basicLandDef('R', 38), normalizeCard(card('Two', '{1}{R}', 2, 'Creature — Goblin', ['R']), 61)], format: duel };
+  let counts;
+  const sim = { simulateMany: async (m, list) => { counts = list; return list.map(() => ({ castOnCurve: 0, turns: [], floodRate: 0, manaSpent: 0 })); } };
+  await landCountSweep(model, [2], { sim });
+  assert.equal(counts[0][0], 1); // the commander stays
+  assert.equal(counts[0][2], 59); // two two-drops make room for two more lands
+});
+
+test('commandersOf: the Commander section, or a short sideboard in commander formats', () => {
+  const mtgo = parseDecklist('1 Bolt\n98 Mountain\n\n1 Leader\n');
+  assert.deepEqual(commandersOf(mtgo, duel), [{ name: 'Leader', count: 1 }]);
+  assert.deepEqual(commandersOf(mtgo, getFormat('modern')), []);
+  assert.deepEqual(commandersOf(parseDecklist('Commander\n1 Boss\n\nDeck\n1 Bolt\n\nSideboard\n1 Leader\n'), duel), [{ name: 'Boss', count: 1 }]);
+  assert.deepEqual(commandersOf(parseDecklist('1 Bolt\n\nSideboard\n1 A\n1 B\n1 C\n'), duel), []);
 });
 
 test('buildModel marks the commander, takes it from a one-card sideboard, and checks color identity', () => {

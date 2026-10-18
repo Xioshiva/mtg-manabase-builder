@@ -358,9 +358,11 @@ export function simulateChunks(model, opts, from, to) {
     if (extra) bf.push(extra);
     let best = 0;
     const cache = {};
-    for (let i = 0; i < hand.length; i++) {
+    // The commander counts too: a land that lets it come down beats a tapped one.
+    const pool = command.length ? hand.concat(command) : hand;
+    for (let i = 0; i < pool.length; i++) {
       if (i === skipPos) continue;
-      const d = defs[hand[i]];
+      const d = defs[pool[i]];
       if (!d.spell || d.spell.noCost || d.spell.cmc <= best) continue;
       const kind = d.spell.kind;
       const masks = cache[kind] || (cache[kind] = sourcesFor(kind, false).masks);
@@ -617,7 +619,9 @@ export function simulateChunks(model, opts, from, to) {
       x.tapped = true;
       if (n < pay.pipFor.length) st.life += lifeFor(x, pay.pipFor[n], sp.kind);
     });
-    if (fromHand) hand.splice(pick, 1); else command.splice(pick - hand.length, 1);
+    if (fromHand) hand.splice(pick, 1);
+    else if (fmt.oneCommanderCast) command.length = 0; // Duel Commander: one commander from the command zone per game
+    else command.splice(pick - hand.length, 1);
     if (sacrifice) {
       // Sacrificed instead of paying the extra mana: give up a spare Treasure or a non-mana permanent first.
       const words = [].concat(sp.extraCost.unlessType);

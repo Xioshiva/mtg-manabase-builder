@@ -7,18 +7,21 @@ import { deckStats, recommendLandCount, sourcesNeeded, countSources, splitBasics
 import { optimizeLands, landCountSweep, pickCandidates } from './optimize.js';
 import { cardKey } from './decklist.js';
 
+// The deck's commanders: its Commander section or, in a commander format, a sideboard of one
+// or two cards (MTGO exports, MTGTop8's included, list the commander as the sideboard).
+export function commandersOf(parsed, format) {
+  if (parsed.commander?.length || !format.commander) return parsed.commander || [];
+  return parsed.sideboard?.length && parsed.sideboard.length <= 2 ? parsed.sideboard : [];
+}
+
 // parsed: output of parseDecklist; cardData: Map(cardKey(name) -> Scryfall card)
 export function buildModel(parsed, cardData, format) {
   const cards = [];
   const unknown = [];
   const illegal = [];
   const warnings = [];
-  let commanders = parsed.commander || [];
-  // MTGO exports (MTGTop8's included) list the commander as the deck's only sideboard card.
-  if (format.commander && !commanders.length && parsed.sideboard?.length && parsed.sideboard.length <= 2) {
-    commanders = parsed.sideboard;
-    warnings.push(`Using the sideboard (${commanders.map((c) => c.name).join(', ')}) as the commander.`);
-  }
+  const commanders = commandersOf(parsed, format);
+  if (commanders.length && !parsed.commander?.length) warnings.push(`Using the sideboard (${commanders.map((c) => c.name).join(', ')}) as the commander.`);
   const isCommander = new Set(commanders.map((c) => cardKey(c.name)));
   const entries = [...parsed.main, ...commanders];
   for (const { name, count } of entries) {

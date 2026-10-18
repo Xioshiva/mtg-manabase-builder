@@ -130,6 +130,12 @@ test('Duel Commander lands: Mystic Sanctuary, Temple of the False God, City of T
   assert.ok(cities.turns[3].avgLands <= 1, `${cities.turns[3].avgLands}`);
 });
 
+test('Everflowing Chalice makes nothing without charge counters', () => {
+  const chalice = real('Everflowing Chalice');
+  assert.equal(chalice.spell.mana, null);
+  assert.ok(chalice.notes.some((n) => /does not use it as a mana source/.test(n)));
+});
+
 test('Command Tower and Arcane Signet make only the commander\'s colors', () => {
   const parsed = parseDecklist('Commander\n1 Tasigur, the Golden Fang\n\nDeck\n1 Command Tower\n1 Arcane Signet\n');
   const { model } = buildModel(parsed, byName, getFormat('duel'));
@@ -147,6 +153,7 @@ const UNUSUAL = {
   'living-end-899960.txt': 'cycles creatures it never means to cast, and cascade is not modelled',
   'hammer-time-900459.txt': 'plays 19 lands, and its Urza\'s Sagas leave play',
   'lotus-field-896795.txt': 'Lotus Field sacrifices two lands',
+  'emry-900941.txt': 'City of Traitors is sacrificed by its next land drop and Urza\'s Saga leaves, so fewer lands stay out',
 };
 
 for (const [formatId, sub] of Object.entries(DECK_DIRS)) {

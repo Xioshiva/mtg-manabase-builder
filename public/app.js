@@ -5,7 +5,7 @@ import { normalizeCard, isBasicName } from './lib/cards.js';
 import { colorDemand } from './lib/sim.js';
 import { COLOR_ORDER } from './lib/mana.js';
 import { recognizeDeckLink } from './lib/importers.js';
-import { buildModel, runAnalysis } from './lib/analysis.js';
+import { buildModel, runAnalysis, commandersOf } from './lib/analysis.js';
 import { createSimPool } from './lib/pool.js';
 import { createDeckStore } from './lib/deckstore.js';
 import { landOptions, landsForColor } from './lib/lands.js';
@@ -285,11 +285,12 @@ async function run() {
   const format = FORMATS[$('format').value];
   $('run').disabled = true;
   try {
-    const names = [...parsed.main, ...parsed.commander].map((c) => c.name);
+    const commanders = commandersOf(parsed, format);
+    const names = [...parsed.main, ...commanders].map((c) => c.name);
     const { map } = await getCards(names);
     let candidateCards = [];
     if ($('optimize').checked) {
-      const colors = deckColorsOf([...parsed.main, ...parsed.commander], map);
+      const colors = deckColorsOf([...parsed.main, ...commanders], map);
       if (colors.length > 1) {
         setStatus('Looking up dual lands legal in ' + format.name + '…');
         candidateCards = await legalLands(format, colors);

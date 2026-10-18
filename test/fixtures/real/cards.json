@@ -14134,7 +14134,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{1}{W}",
   "type_line": "Legendary Creature — Human Noble",
   "oracle_text": "Whenever an opponent casts their first noncreature spell each turn, you recruit. (Draw a card, then discard a card. If you discarded a nonland card, create a 1/1 white Human Soldier creature token.)",
@@ -14170,7 +14170,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{3}{W}",
   "type_line": "Legendary Creature — Human Hero",
   "oracle_text": "Flying, vigilance, indestructible\nWhen The Sentry enters, target opponent creates The Void, a legendary 5/5 black Horror Villain creature token with flying, indestructible, and \"The Void attacks each combat if able.\"",
@@ -14313,7 +14313,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "",
   "type_line": "Land",
   "oracle_text": "{T}: Add {R}.\n{T}: Add {G}. Activate only if you control a Mountain or a Forest.",
@@ -14349,7 +14349,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{2}{U}{U}",
   "type_line": "Enchantment",
   "oracle_text": "Cumulative upkeep—Exile the top card of your library. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhen a player doesn't pay Thought Lash's cumulative upkeep, that player exiles all cards from their library.\nExile the top card of your library: Prevent the next 1 damage that would be dealt to you this turn.",
@@ -14366,7 +14366,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{U}",
   "type_line": "Instant",
   "oracle_text": "Target player mills two cards.\nDraw a card.",
@@ -14453,7 +14453,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{G}",
   "type_line": "Creature — Plant Wall",
   "oracle_text": "Defender (This creature can't attack.)\nSacrifice Tinder Wall: Add {R}{R}.\n{R}, Sacrifice Tinder Wall: It deals 2 damage to target creature it's blocking.",
@@ -14488,7 +14488,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{3}{G}{G}",
   "type_line": "Legendary Creature — Elemental",
   "oracle_text": "When Titania, Protector of Argoth enters, return target land card from your graveyard to the battlefield.\nWhenever a land you control is put into a graveyard from the battlefield, create a 5/3 green Elemental creature token.",
@@ -14505,7 +14505,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{W}",
   "type_line": "Instant",
   "oracle_text": "Search your library for a Plains card. If target opponent controls more lands than you, you may search your library for an additional Plains card. Reveal those cards, put them into your hand, then shuffle.",
@@ -14522,7 +14522,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{1}{W}",
   "type_line": "Creature — Human Soldier",
   "oracle_text": "During your turn, spells your opponents cast cost {1} more to cast and abilities your opponents activate cost {1} more to activate unless they're mana abilities.\nAfterlife 1 (When this creature dies, create a 1/1 white and black Spirit creature token with flying.)",
@@ -14539,7 +14539,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{1}{W}",
   "type_line": "Creature — Human Soldier",
   "oracle_text": "Creatures entering don't cause abilities to trigger.",
@@ -14571,7 +14571,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{B/R}{B/R}",
   "type_line": "Legendary Creature — Turtle Wolf Mutant",
   "oracle_text": "This spell can't be countered.\nMenace\nWhenever a player casts a spell, if the amount of mana spent to cast it was less than its mana value, Tokka & Rahzar deal 3 damage to that player.",
@@ -14607,7 +14607,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "",
   "type_line": "Land",
   "oracle_text": "Tomb Fortress enters tapped.\n{T}: Add {B}.\n{2}{B}{B}{B}, {T}, Exile Tomb Fortress: Mill four cards, then return a creature card from your graveyard to the battlefield. Activate only as a sorcery.",
@@ -14624,7 +14624,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{2}{R}{G}",
   "type_line": "Legendary Creature — Human Warrior Ally",
   "oracle_text": "When Toph enters, earthbend X, where X is the amount of mana spent to cast her.\nLand creatures you control have double strike.",
@@ -14675,7 +14675,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{5}{G}{W}",
   "type_line": "Legendary Creature — Human Soldier",
   "oracle_text": "When Torsten, Founder of Benalia enters, reveal the top seven cards of your library. Put any number of creature and/or land cards from among them into your hand and the rest on the bottom of your library in a random order.\nWhen Torsten dies, create seven 1/1 white Soldier creature tokens.",
@@ -14693,7 +14693,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{2}{B}",
   "type_line": "Sorcery",
   "oracle_text": "As an additional cost to cast this spell, pay X life.\nAll creatures get -X/-X until end of turn.",
@@ -14710,7 +14710,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{U}{U}",
   "type_line": "Sorcery",
   "oracle_text": "Sacrifice an artifact. If you do, search your library for an artifact card. If that card's mana value is less than or equal to the sacrificed artifact's mana value, put it onto the battlefield. If it's greater, you may pay {X}, where X is the difference. If you do, put it onto the battlefield. If you don't, put it into its owner's graveyard. Then shuffle.",
@@ -14745,7 +14745,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "",
   "type_line": "Artifact Land",
   "oracle_text": "{T}: Add {C}.\n{X}{X}, {T}, Sacrifice Treasure Vault: Create X Treasure tokens.",
@@ -14760,7 +14760,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "",
   "type_line": "Land",
   "oracle_text": "Treetop Village enters tapped.\n{T}: Add {G}.\n{1}{G}: Treetop Village becomes a 3/3 green Ape creature with trample until end of turn. It's still a land. (It can deal excess combat damage to the player or planeswalker it's attacking.)",
@@ -14811,7 +14811,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{2}{U}",
   "type_line": "Creature — Human Wizard",
   "oracle_text": "When Trinket Mage enters, you may search your library for an artifact card with mana value 1 or less, reveal that card, put it into your hand, then shuffle.",
@@ -14828,7 +14828,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "",
   "type_line": "Land — Forest Island",
   "oracle_text": "({T}: Add {G} or {U}.)",
@@ -14846,7 +14846,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "",
   "type_line": "Land — Plains Island",
   "oracle_text": "({T}: Add {W} or {U}.)",
@@ -14996,7 +14996,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{2}",
   "type_line": "Legendary Artifact — Equipment",
   "oracle_text": "Whenever equipped creature deals combat damage, put two charge counters on Umezawa's Jitte.\nRemove a charge counter from Umezawa's Jitte: Choose one —\n• Equipped creature gets +2/+2 until end of turn.\n• Target creature gets -1/-1 until end of turn.\n• You gain 2 life.\nEquip {2}",
@@ -15011,7 +15011,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{U}",
   "type_line": "Enchantment — Aura",
   "oracle_text": "Enchant creature\nEnchanted creature loses all abilities and is a Toy artifact creature with base power and toughness 0/2 in addition to its other types.\nAs long as enchanted creature is face down, it can't be turned face up.",
@@ -15086,7 +15086,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "",
   "type_line": "Land — Island Swamp",
   "oracle_text": "({T}: Add {U} or {B}.)",
@@ -15104,7 +15104,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{B}",
   "type_line": "Sorcery",
   "oracle_text": "Return target creature card with mana value 3 or less from your graveyard to the battlefield.\nCycling {2} ({2}, Discard this card: Draw a card.)",
@@ -15121,7 +15121,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{X}{W}{W}",
   "type_line": "Instant",
   "oracle_text": "Put target nonland permanent into its owner's library just beneath the top X cards of that library.",
@@ -15258,7 +15258,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{5}{G}{U}{R}",
   "type_line": "Legendary Creature — Spirit Dragon",
   "oracle_text": "Flying, protection from white and from black\nWhen Ureni enters, it deals X damage divided as you choose among any number of target creatures and/or planeswalkers your opponents control, where X is the number of lands you control.",
@@ -15277,7 +15277,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{0}",
   "type_line": "Artifact",
   "oracle_text": "{T}, Sacrifice Urza's Bauble: Look at a card at random in target player's hand. You draw a card at the beginning of the next turn's upkeep.",
@@ -15292,7 +15292,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "",
   "type_line": "Land — Urza's Cave",
   "oracle_text": "{T}: Add {C}.\n{3}, {T}, Sacrifice Urza's Cave: Search your library for a land card, put it onto the battlefield tapped, then shuffle.",
@@ -15371,7 +15371,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{2}{U}{U}",
   "type_line": "Legendary Creature — Human Artificer",
   "oracle_text": "When Urza, Lord High Artificer enters, create a 0/0 colorless Construct artifact creature token with \"This token gets +1/+1 for each artifact you control.\"\nTap an untapped artifact you control: Add {U}.\n{5}: Shuffle your library, then exile the top card. Until end of turn, you may play that card without paying its mana cost.",
@@ -15388,7 +15388,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{G}",
   "type_line": "Enchantment — Aura",
   "oracle_text": "Enchant Forest\nAs Utopia Sprawl enters, choose a color.\nWhenever enchanted Forest is tapped for mana, its controller adds an additional one mana of the chosen color.",
@@ -15453,7 +15453,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{6}{B}{B}{B}",
   "type_line": "Legendary Creature — Elder Demon",
   "oracle_text": "Flying, lifelink\nWard—Sacrifice three nonland permanents.\nIf a card you didn't control would be put into an opponent's graveyard from anywhere, exile it instead.\nDuring your turn, you may play cards exiled with Valgavoth. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.",
@@ -15487,7 +15487,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{5}{G}{G}",
   "type_line": "Creature — Dinosaur",
   "oracle_text": "Trample\nWhenever Vaultborn Tyrant or another creature you control with power 4 or greater enters, you gain 3 life and draw a card.\nWhen Vaultborn Tyrant dies, if it's not a token, create a token that's a copy of it, except it's an artifact in addition to its other types.",
@@ -15504,7 +15504,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "",
   "type_line": "Land",
   "oracle_text": "{T}, Pay 1 life, Sacrifice Verdant Catacombs: Search your library for a Swamp or Forest card, put it onto the battlefield, then shuffle.",
@@ -15554,7 +15554,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{2}{B}{G}",
   "type_line": "Sorcery",
   "oracle_text": "As an additional cost to cast this spell, pay X life.\nDestroy all artifacts and creatures with mana value X or less.",
@@ -15628,7 +15628,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{W}{U}{B}",
   "type_line": "Instant",
   "oracle_text": "This spell can't be countered.\nDestroy target nonland permanent.",
@@ -15647,7 +15647,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "",
   "type_line": "Land — Island Mountain",
   "oracle_text": "({T}: Add {U} or {R}.)",
@@ -15665,7 +15665,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{1}{B}",
   "type_line": "Legendary Creature — Phyrexian Vampire",
   "oracle_text": "Whenever one or more other creatures you control die, each opponent loses 2 life and you gain 2 life. This ability triggers only once each turn.",
@@ -15717,7 +15717,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{U}",
   "type_line": "Instant",
   "oracle_text": "Cleave {1}{U}{U} (You may cast this spell for its cleave cost. If you do, remove the words in square brackets.)\nCounter target spell [that wasn't cast from its owner's hand].",
@@ -15769,7 +15769,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "card_faces": [
    {
     "name": "Waterlogged Teachings",
@@ -15868,7 +15868,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{0}",
   "type_line": "Artifact",
   "oracle_text": "Sacrifice Welding Jar: Regenerate target artifact.",
@@ -15883,7 +15883,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{X}{U}{U}{U}",
   "type_line": "Instant",
   "oracle_text": "Improvise (Your artifacts can help cast this spell. Each artifact you tap after you're done activating mana abilities pays for {1}.)\nSearch your library for an artifact card with mana value X or less, put it onto the battlefield, then shuffle.",
@@ -15918,7 +15918,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{G}",
   "type_line": "Enchantment — Aura",
   "oracle_text": "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional {G}.",
@@ -15953,7 +15953,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{3}{G}",
   "type_line": "Enchantment",
   "oracle_text": "At the beginning of your end step, untap all lands you control.",
@@ -15988,7 +15988,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "",
   "type_line": "Land",
   "oracle_text": "{T}, Pay 1 life, Sacrifice Windswept Heath: Search your library for a Forest or Plains card, put it onto the battlefield, then shuffle.",
@@ -16003,7 +16003,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{2}",
   "type_line": "Artifact",
   "oracle_text": "Players can't untap more than one nonbasic land during their untap steps.",
@@ -16018,7 +16018,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{2}",
   "type_line": "Artifact",
   "oracle_text": "As long as Winter Orb is untapped, players can't untap more than one land during their untap steps.",
@@ -16172,7 +16172,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{1}",
   "type_line": "Artifact",
   "oracle_text": "{1}, {T}, Sacrifice this artifact: Search your library for a basic land card, reveal it, put it into your hand, then shuffle.\n{3}, {T}, Sacrifice this artifact: Search your library for a land card, reveal it, put it into your hand, then shuffle.",
@@ -16187,7 +16187,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{3}{G}{G}",
   "type_line": "Enchantment — Saga",
   "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — The next red or green creature spell you cast this turn can be cast without paying its mana cost.\nII — Put three +1/+1 counters on target creature you control.\nIII — Choose target creature you control. Until end of turn, double its power and toughness and it gains trample.",
@@ -16204,7 +16204,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{G}",
   "type_line": "Instant",
   "oracle_text": "Search your library for a creature card, reveal it, then shuffle and put the card on top.",
@@ -16239,7 +16239,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{R}{G}",
   "type_line": "Legendary Planeswalker — Wrenn",
   "oracle_text": "+1: Return up to one target land card from your graveyard to your hand.\n−1: Wrenn and Six deals 1 damage to any target.\n−7: You get an emblem with \"Instant and sorcery cards in your graveyard have retrace.\" (You may cast instant and sorcery cards from your graveyard by discarding a land card in addition to paying their other costs.)",
@@ -16275,7 +16275,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{1}{B}",
   "type_line": "Creature — Worm",
   "oracle_text": "When Wriggling Grub dies, create two 1/1 black and green Worm creature tokens.",
@@ -16403,7 +16403,7 @@
    "commander": "legal",
    "duel": "legal"
   },
-  "source": "raw.githubusercontent.com",
+  "source": "github.com/Card-Forge/forge",
   "mana_cost": "{1}{B}",
   "type_line": "Creature — Human Rogue Ally",
   "oracle_text": "Whenever Zulaport Cutthroat or another creature you control dies, each opponent loses 1 life and you gain 1 life.",

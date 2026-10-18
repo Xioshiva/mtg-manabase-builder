@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs';
 import { parseDecklist, cardKey, indexCards } from './public/lib/decklist.js';
 import { fetchCollection, searchLands } from './public/lib/scryfall.js';
-import { buildModel, runAnalysis, deckColors } from './public/lib/analysis.js';
+import { buildModel, runAnalysis, deckColors, commandersOf } from './public/lib/analysis.js';
 import { getFormat } from './public/lib/formats.js';
 import { recognizeDeckLink, importDeckLink } from './public/lib/importers.js';
 import { createNodeSimulator, parseThreads } from './node-pool.js';
@@ -26,7 +26,7 @@ if (recognizeDeckLink(file)) {
 } else deckText = readFileSync(file, 'utf8');
 const format = getFormat(opt('--format', (imported && imported.format) || 'standard'));
 const parsed = parseDecklist(deckText);
-const names = [...parsed.main, ...parsed.commander].map((c) => c.name);
+const names = [...parsed.main, ...commandersOf(parsed, format)].map((c) => c.name);
 let cards, candidateCards = [];
 const cardFile = opt('--cards');
 if (cardFile) {
