@@ -154,6 +154,11 @@ const UNUSUAL = {
   'hammer-time-900459.txt': 'plays 19 lands, and its Urza\'s Sagas leave play',
   'lotus-field-896795.txt': 'Lotus Field sacrifices two lands',
   'emry-900941.txt': 'City of Traitors is sacrificed by its next land drop and Urza\'s Saga leaves, so fewer lands stay out',
+  // cEDH decks play few lands and lean on fast mana, so they miss land drops by design.
+  'kefka-899242.txt': 'cEDH: 25 lands',
+  'kinnan-899241.txt': 'cEDH: 25 lands',
+  'kraum-tymna-900288.txt': 'cEDH: 25 lands',
+  'sisay-900353.txt': 'cEDH: 28 lands',
 };
 
 for (const [formatId, sub] of Object.entries(DECK_DIRS)) {

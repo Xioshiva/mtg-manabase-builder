@@ -42,6 +42,8 @@ const ROMAN = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6 };
 // any one color") put the mana after the first in `extra`, one mask per mana.
 // Signets and the Odyssey filter lands: "{1}, {T}: Add {W}{U}" turns one mana into two.
 const FILTER = /^\{1\}, \{t\}: add \{([wubrg])\}\{([wubrg])\}\.?$/;
+// Shadowmoor filter lands: "{W/B}, {T}: Add {W}{W}, {W}{B}, or {B}{B}" needs one of those colors first.
+const HYBRID_FILTER = /^\{([wubrg])\/([wubrg])\}, \{t\}: add \{\1\}\{\1\}, \{\1\}\{\2\}, or \{\2\}\{\2\}\.?$/;
 
 // selfName: the card's name, to read "{T}, Sacrifice Lotus Petal: Add ..." as a one-use source.
 export function parseManaAbilities(text, { selfName = null } = {}) {
@@ -63,13 +65,21 @@ export function parseManaAbilities(text, { selfName = null } = {}) {
       out.notes.push(`Counted as one mana that is {${filter[1].toUpperCase()}} or {${filter[2].toUpperCase()}}: it turns {1} into {${filter[1].toUpperCase()}}{${filter[2].toUpperCase()}}`);
       continue;
     }
+    const hybrid = l.match(HYBRID_FILTER);
+    if (hybrid) {
+      const [x, y] = [hybrid[1].toUpperCase(), hybrid[2].toUpperCase()];
+      out.cond.push({ mask: COLOR_BITS[x] | COLOR_BITS[y], types: 0, source: COLOR_BITS[x] | COLOR_BITS[y] });
+      out.notes.push(`Counted as one mana that is {${x}} or {${y}} once another source of {${x}} or {${y}} is out (it really turns that mana into any two of them)`);
+      continue;
+    }
     const m = l.match(/^\{t\}((?:, [^:]+)?): add (.+)$/);
     if (!m) continue;
     const cost = m[1];
     const oneShot = selfName && (cost === `, sacrifice ${selfName.toLowerCase()}` || /^, sacrifice this (artifact|creature|enchantment)$/.test(cost));
     if (oneShot) out.oneShot = true;
-    // Everflowing Chalice: "Add {C} for each charge counter" makes nothing without counters.
-    else if (/tap an untapped|sacrifice|discard|exile|\{\d|\{[wubrgc]\}/.test(cost) || /for each charge counter/.test(m[2])) {
+    // Everflowing Chalice: "Add {C} for each charge counter" and Séance Board's "Add X mana,
+    // where X is the number of soul counters" make nothing without counters.
+    else if (/tap an untapped|sacrifice|discard|exile|\{\d|\{[wubrgc]\}/.test(cost) || /for each charge counter|^x mana/.test(m[2])) {
       out.unusable = true; // needs another resource; not counted as a mana source
       continue;
     }
@@ -158,7 +168,7 @@ export function parseManaAbilities(text, { selfName = null } = {}) {
 // surveil on entering, and the choices some lands make as they enter.
 function isManaLine(l) {
   return /^\{t\}(, pay \d+ life)?: add\b/.test(l)
-    || FILTER.test(l)
+    || FILTER.test(l) || HYBRID_FILTER.test(l)
     || FETCH.test(l)
     || /enters( the battlefield)? tapped/.test(l)
     || /^as [^,]+ enters, (?:choose a (?:color|basic land type|creature type)|you may behold)/.test(l)
@@ -199,7 +209,7 @@ export function parseLand(face, producedFallback) {
     etb: 'untapped',
     etbTypes: 0,
     etbPerm: null, // permanent type that makes it enter untapped ("unless you control an Equipment")
-    etbCount: 0, // how many lands of etbTypes it needs (Mystic Sanctuary: three other Islands)
+    etbCount: 0, // how many lands of etbTypes it needs (Mystic Sanctuary: three other Islands), or basics for `basic`
     types,
     isBasic: /\bBasic\b/.test(typeLine),
     legendary: /\bLegendary\b/.test(typeLine),
@@ -285,6 +295,8 @@ export function parseLand(face, producedFallback) {
 
   const hasMana = land.mask || land.cond.length || land.restricted.length || land.choices || land.fetch;
   if (!hasMana && producedFallback) land.mask = colorsToMask(producedFallback);
+  // Cabal Coffers: "{2}, {T}: Add {B} for each Swamp you control."
+  if (!hasMana && !land.mask && /^[^"\n]*: add\b/m.test(lower) && !/as a copy of/.test(lower)) land.notes.push('Its mana ability needs another resource, so the simulator does not use it as a mana source');
 
   if (/enters( the battlefield)? tapped/.test(lower)) {
     let m;
@@ -295,6 +307,8 @@ export function parseLand(face, producedFallback) {
     else if (/if you control two or more other lands, [^.]*enters tapped/.test(lower)) land.etb = 'fastTwo';
     else if (/unless you control two or more other lands/.test(lower)) land.etb = 'slow';
     else if (/unless you control a basic land/.test(lower)) land.etb = 'basic';
+    // Battle lands (Prairie Stream): "unless you control two or more basic lands".
+    else if ((m = lower.match(/unless you control (two|three) or more basic lands/))) { land.etb = 'basic'; land.etbCount = COUNT_WORDS[m[1]]; }
     else if (/unless you have two or more opponents/.test(lower)) land.etb = 'multiplayer';
     else if (/unless it's your first, second, or third turn/.test(lower)) land.etb = 'earlyTurns';
     else if (/unless a player has (\d+) or less life/.test(lower)) {
@@ -605,7 +619,22 @@ function parseSpell(face, card) {
       }
       if (mana.oneShot) mana.notes.push('Sacrificed for its mana, so it is used once, like a Treasure');
     }
+    // Fertile Ground, Wild Growth, Utopia Sprawl: the enchanted land makes one more mana, which
+    // is counted like a mana creature (usable from the turn after it is cast).
+    const aura = !spell.mana && text.match(/^whenever enchanted [a-z]+ is tapped for mana, its (?:controller|player) adds an additional ([^.]+)\./m);
+    if (aura) {
+      const more = parseManaAbilities(`{T}: Add ${aura[1]}.`);
+      if (more.chosenColor) more.mask |= ANY_COLOR;
+      if (more.mask) {
+        spell.mana = { ...more, sick: true };
+        more.notes.push('Counted as a mana source from the turn after it is cast: its land makes one more mana');
+      }
+    }
   }
+  // Crypt Ghast, Bubbling Muck, Badgermole Cub: extra mana when permanents are tapped for mana.
+  if (/whenever (?:you tap|a player taps) an? [a-z]+ for mana, (?:that player )?adds? an additional/.test(text)) notes.push('The extra mana it adds when you tap a permanent for mana is not counted');
+  // Medallions: "Black spells you cast cost {1} less to cast."
+  if (/^(?:[a-z]+ )*spells you cast cost \{\d+\} less to cast/m.test(text)) notes.push('Making your other spells cheaper is not modelled');
   if (spell.discardLand) notes.push('Cast only with a land card in hand to discard for it');
   return spell;
 }
@@ -663,8 +692,12 @@ export function normalizeCard(sc, count = 1) {
     if (def.spell.mana) {
       def.producesManaNonLand = true;
       def.notes.push(...def.spell.mana.notes);
-    } else if (/\{t\}[^:]*: add\b/i.test(stripReminder(front.oracle_text || ''))) {
+    } else if (/^(?![+−-]?\d+: )[^"\n]*: add\b/im.test(stripReminder(front.oracle_text || ''))) {
+      // Altars ("Sacrifice a creature: Add {C}{C}") and abilities that cost mana; not loyalty abilities.
       def.notes.push('Its mana ability needs another resource, so the simulator does not use it as a mana source');
+    } else if (/\b(?:has|have) ["'][^"']*: add\b/i.test(stripReminder(front.oracle_text || ''))) {
+      // Abundant Growth, Springleaf Parade: "Enchanted land has '{T}: Add one mana of any color.'"
+      def.notes.push('The mana ability it gives other permanents is not modelled');
     }
     if (def.spell.domain) def.notes.push('Domain makes it cheaper for each basic land type you control. The simulator applies that, but leaves it out of the on-curve average because its curve turn depends on your lands');
     else if (def.spell.costReduction) def.notes.push('Cost reduction is not modelled, so it is left out of the on-curve average');
@@ -706,7 +739,7 @@ export function landSummary(land) {
   if (!land) return '';
   const etb = {
     untapped: 'untapped', shock: 'untapped (pay 2 life)', tapped: 'tapped', fast: 'untapped as one of your first three lands', fastTwo: 'untapped as one of your first two lands',
-    slow: 'untapped from your third land', basic: 'untapped with a basic', check: 'untapped with the right land type',
+    slow: 'untapped from your third land', basic: land.etbCount > 1 ? `untapped with ${['', 'one', 'two', 'three'][land.etbCount]} basics` : 'untapped with a basic', check: 'untapped with the right land type',
     reveal: 'untapped if you reveal the right land type', multiplayer: 'tapped in 1v1', unknown: 'tapped (unknown condition)',
     earlyTurns: 'untapped on turns 1-3', lowLife: 'tapped until turn 5',
     typeCount: `untapped with ${['', 'one', 'two', 'three', 'four', 'five'][land.etbCount]} other ${Object.keys(TYPE_BITS).filter((t) => land.etbTypes & TYPE_BITS[t]).map((t) => t[0].toUpperCase() + t.slice(1) + (t === 'plains' ? '' : 's')).join(' or ')}`, controlPerm: `untapped with ${land.etbPerm ? 'an ' + land.etbPerm : 'the right permanent'}`,
@@ -719,7 +752,8 @@ export function landSummary(land) {
   if (land.restricted.some((r) => r.kind === 'spell')) extras.push('colors only for instants/sorceries');
   const perm = land.cond.find((c) => c.perm);
   if (perm) extras.push(`makes mana once you control ${/^[aeiou]/.test(perm.perm[0]) ? 'an' : 'a'} ${perm.perm[0]}`);
-  if (land.cond.some((c) => !c.perm)) extras.push('second color needs the right land in play');
+  if (land.cond.some((c) => c.source)) extras.push('colors need another source of them');
+  if (land.cond.some((c) => !c.perm && !c.source)) extras.push('second color needs the right land in play');
   if (land.fetch) {
     const f = land.fetch;
     const untap = !f.tapped ? '' : f.untapAt ? ' (untaps with 4+ lands)' : f.untapIfBehold ? ` (untaps if you behold ${/^[aeiou]/.test(f.untapIfBehold) ? 'an' : 'a'} ${f.untapIfBehold[0].toUpperCase() + f.untapIfBehold.slice(1)})` : ', tapped';

@@ -135,3 +135,61 @@ test('Commander hands count cheap rocks and dorks as lands when deciding to keep
   const vault = simulate({ cards: vaults, format: commander }, { games: 2000, seed: 4 });
   assert.ok(Math.abs(vault.mulliganRate - landsOnly.mulliganRate) < 0.1, `${vault.mulliganRate} vs ${landsOnly.mulliganRate}`);
 });
+
+test('Signets and Shadowblood Ridge turn {1} into two colors', () => {
+  assert.equal(real('Rakdos Signet').spell.mana.mask, C.B | C.R);
+  assert.equal(real('Shadowblood Ridge').land.mask, C.B | C.R);
+  // Mountains alone never make {B}; with Signets out, {2}{B} spells come down.
+  const deck = (rock) => ({ cards: [rock, basicLandDef('R', 30), spell('Three', '{2}{B}', 3, 50)], format: standard });
+  const signets = simulate(deck(real('Rakdos Signet', 20)), { games: 2000, seed: 4 });
+  const blanks = simulate(deck(spell('Trinket', '{2}', 2, 20, { type: 'Artifact' })), { games: 2000, seed: 4 });
+  assert.ok(signets.castOnCurve > blanks.castOnCurve + 0.2, `${signets.castOnCurve} vs ${blanks.castOnCurve}`);
+});
+
+test('Timeless Lotus enters tapped, so its mana waits a turn', () => {
+  assert.equal(real('Timeless Lotus').spell.mana.sick, true);
+  assert.equal(real('Sol Ring').spell.mana.sick, false);
+});
+
+test('battle lands enter untapped with two basics', () => {
+  const stream = real('Prairie Stream').land;
+  assert.deepEqual([stream.etb, stream.etbCount], ['basic', 2]);
+  assert.match(landSummary(stream), /untapped with two basics/);
+  // With one basic in play, a land that needs two still enters tapped.
+  const deck = (count) => ({ cards: [{ ...real('Prairie Stream', 30), land: { ...stream, etbCount: count } }, basicLandDef('W', 10), spell('Three', '{2}{W}', 3, 40)], format: standard });
+  const two = simulate(deck(2), { games: 4000, seed: 4 });
+  const one = simulate(deck(1), { games: 4000, seed: 4 });
+  assert.ok(one.manaSpent > two.manaSpent + 0.2, `${one.manaSpent} vs ${two.manaSpent}`);
+});
+
+test('filter lands make their colors only with another source of them', () => {
+  const heath = real('Fetid Heath').land;
+  assert.equal(heath.mask, C.C);
+  assert.deepEqual(heath.cond, [{ mask: C.W | C.B, types: 0, source: C.W | C.B }]);
+  assert.match(landSummary(heath), /colors need another source of them/);
+  assert.equal(heath.utility, false);
+  const white = (lands) => simulate({ cards: [...lands, spell('Two', '{1}{W}', 2, 40)], format: standard }, { games: 2000, seed: 4 }).castOnCurve;
+  // Fed by a Swamp, Fetid Heath makes {W}; two filter lands can't feed each other.
+  assert.ok(white([real('Fetid Heath', 30), basicLandDef('B', 30)]) > 0.5);
+  assert.equal(white([real('Fetid Heath', 60)]), 0);
+});
+
+test('Fertile Ground counts as a mana source from the next turn', () => {
+  const ground = real('Fertile Ground').spell.mana;
+  assert.deepEqual([ground.mask, ground.sick], [ANY_COLOR, true]);
+  const deck = (two) => ({ cards: [two, basicLandDef('G', 30), spell('Four', '{3}{G}', 4, 50)], format: standard });
+  const aura = simulate(deck(real('Fertile Ground', 20)), { games: 2000, seed: 4 });
+  const bears = simulate(deck(spell('Bear', '{1}{G}', 2, 20)), { games: 2000, seed: 4 });
+  assert.ok(aura.turns[2].manaSpent > bears.turns[2].manaSpent + 0.3, `${aura.turns[2].manaSpent} vs ${bears.turns[2].manaSpent}`);
+});
+
+test('mana the simulator leaves out is named in the notes', () => {
+  const noted = (n, re) => assert.ok(real(n).notes.some((t) => re.test(t)), `${n}: ${real(n).notes.join(' | ')}`);
+  noted("Ashnod's Altar", /needs another resource/);
+  noted('Cabal Coffers', /needs another resource/);
+  noted('Abundant Growth', /gives other permanents is not modelled/);
+  noted('Crypt Ghast', /when you tap a permanent for mana is not counted/);
+  noted('Jet Medallion', /other spells cheaper is not modelled/);
+  // Séance Board makes X mana for its soul counters, so nothing at first.
+  assert.equal(real('Séance Board').spell.mana, null);
+});

@@ -142,6 +142,17 @@ export function simulateChunks(model, opts, from, to) {
         if (artifactCount() >= cd.artifacts) m |= cd.mask;
       } else if (cd.perm) {
         if (perms.some((p) => cd.perm.some((w) => p.typeLine.includes(w)))) m |= cd.mask; // Gaea's Cradle, Mox Amber
+      } else if (cd.source) {
+        // Filter lands (Fetid Heath) turn one mana of their colors into two, so another source
+        // of those colors must be out.
+        const feeds = (y) => {
+          if (y === x || !y.isSource || (!y.isLand && turn < y.readyTurn)) return false;
+          let c = y.mask | (y.isLand ? grant : 0);
+          for (const r of y.L.restricted) if (r.kind === null) c |= r.mask;
+          for (const o of y.L.cond) if (!o.source) c |= o.mask;
+          return !!(c & cd.source);
+        };
+        if (bf.some(feeds) || perms.some(feeds)) m |= cd.mask;
       } else {
         for (const y of bf) if ((y.types | grant) & cd.types) { m |= cd.mask; break; }
       }
@@ -225,7 +236,7 @@ export function simulateChunks(model, opts, from, to) {
       case 'fast': return bf.length > 2;
       case 'fastTwo': return bf.length > 1;
       case 'slow': return bf.length < 2;
-      case 'basic': return !bf.some((x) => x.isBasic);
+      case 'basic': return bf.filter((x) => x.isBasic).length < (L.etbCount || 1); // battle lands need two
       case 'check': return !bf.some((x) => (x.types | grant) & L.etbTypes);
       case 'typeCount': return bf.filter((x) => (x.types | grant) & L.etbTypes).length < L.etbCount;
       case 'reveal': return !hand.some((ci) => defs[ci].land && (defs[ci].land.types & L.etbTypes));

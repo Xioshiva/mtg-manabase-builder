@@ -31,7 +31,7 @@ export const FORMATS = {
     landFormula: (avg, cheap) => 31.42 + 3.13 * avg - 0.28 * cheap,
   },
   commander: {
-    id: 'commander', name: 'Commander', status: 'preview',
+    id: 'commander', name: 'Commander', status: 'ready',
     deckSize: 100, librarySize: 99, maxCopies: 1, handSize: 7, freeMulligan: true, multiplayer: true,
     commander: true, keepCountsRocks: true,
     keepRanges: { 7: [3, 5], 6: [2, 4], 5: [2, 4] },

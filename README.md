@@ -8,7 +8,7 @@ Paste a Magic: The Gathering decklist, or a Moxfield or MTGTop8 deck link, and t
 4. **Searches for a better manabase**. It swaps basics and dual lands legal in your format one at a time and keeps each swap that does better in simulation. Lands that do more than make mana (creature lands, lands that draw or make tokens, graveyard hate) stay as they are, because the simulator can't judge what they're worth. Untick "Keep lands that do more than make mana" (or pass `--swap-utility`) to let the search replace them too. Lands you lock in the deck editor are never swapped.
 5. **Compares land counts** from two fewer to two more lands, looking at land drops, flood and mana spent.
 
-Standard, Pioneer, Modern and Duel Commander are supported. Multiplayer Commander is included as a preview (see `public/lib/formats.js`).
+Standard, Pioneer, Modern, Duel Commander and Commander are supported (see `public/lib/formats.js`).
 
 ## Run it
 
@@ -50,11 +50,11 @@ Tests: `npm test`
 
 ## Tested on real decks
 
-`test/fixtures/real/` holds 40 decks that placed at events listed on MTGTop8 in October 2026 (13 Standard, 9 Pioneer, 9 Modern, 9 Duel Commander), with the rules text of every card in them (see its README for the sources). The tests check that every deck loads, is legal in its format, simulates, and has no land the builder can't read. A Duel Commander deck must also have its commander, exactly 100 cards, and every card inside the commander's color identity. Two scripts help when the builder misreads something:
+`test/fixtures/real/` holds 49 decks with the rules text of every card in them (see its README for the sources). 45 placed at events listed on MTGTop8 in October 2026: 13 Standard, 9 Pioneer, 9 Modern, 9 Duel Commander and 5 cEDH (competitive multiplayer Commander). The other 4 are casual Commander decks: three preconstructed decks and a popular Archidekt list. The tests check that every deck loads, is legal in its format, simulates, and has no land the builder can't read. A Commander or Duel Commander deck must also have its commander, exactly 100 cards, and every card inside the commander's color identity. Two scripts help when the builder misreads something:
 
 ```
-node scripts/real-decks.js                     # analyze all 40 decks (add --optimize to search for better lands)
-node scripts/real-decks.js --format modern     # just the Modern decks (standard, pioneer, modern or duel)
+node scripts/real-decks.js                     # analyze all 49 decks (add --optimize to search for better lands)
+node scripts/real-decks.js --format modern     # just the Modern decks (standard, pioneer, modern, duel or commander)
 node scripts/real-decks.js --deck dimir        # just the decks whose file name contains "dimir"
 node scripts/explain-cards.js                  # each card's rules text next to what the builder understood
 ```
@@ -106,9 +106,25 @@ For Duel Commander (the 1v1 format once called French Commander):
 - **The command zone**: the commander is never drawn and can be cast on any turn. With partners, both start there, but only the first one cast can come from the command zone (Duel Commander rule 404.1). Its row in the results says how often it comes down on curve. Put it under a `Commander` line; an MTGO export's one- or two-card sideboard (what MTGTop8 gives) is read as the commander.
 - **Color identity**: every card must fit the commander's color identity, or a warning names the ones that don't.
 - **1v1 rules**: the first mulligan isn't free, and lands that enter untapped only with two or more opponents enter tapped.
-- **Land count**: Frank Karsten's Commander formula, 31.42 + 3.13 × average mana value − 0.28 × cheap draw and ramp. The average and the count cover every nonland card, the commander included, and the result is the number of lands among the 99. On the 9 real decks it is within 3 lands of the deck's own count for 5 of them. Cantrip-heavy and land-matters decks play up to 7 more (Jace 41 against 34, Toph 42 against 36), and the Terra reanimator deck 7 fewer (35 against 42) because it puts its big creatures into play without casting them.
+- **Land count**: Frank Karsten's Commander formula, 31.42 + 3.13 × average mana value − 0.28 × cheap draw and ramp. The average and the count cover every nonland card, the commander included, and the result is the number of lands among the 99. On the 9 real decks it is within 3 lands of the deck's own count for 5 of them. Cantrip-heavy and land-matters decks play up to 7 more (Jace 41 against 34, Toph 42 against 36), and the Terra reanimator deck 6 fewer (35 against 41) because it puts its big creatures into play without casting them.
 - **Commander lands**: Command Tower, Path of Ancestry and Arcane Signet make only the commander's colors. Mystic Sanctuary enters untapped with three other Islands, Temple of the False God makes {C}{C} once you control five lands, and City of Traitors is sacrificed (after being tapped for mana) when you play another land.
 - MTGTop8 links with `f=EDH` (its code for Duel Commander) and Moxfield decks set to Duel Commander pick the format by themselves.
+
+For multiplayer Commander:
+
+- **The command zone and color identity** work as in Duel Commander, except that both partners can be cast from the command zone.
+- **Multiplayer rules**: the first mulligan is free, and lands that enter untapped with two or more opponents do so.
+- **Keeping hands**: a seven-card hand is kept with three to five lands, and a smaller one with two to four. In both Commander formats a mana rock or mana creature that costs 2 or less counts as a land for this, unless it makes its mana only once (Mana Vault, Lotus Petal) or costs a land card (Mox Diamond).
+- **Land count**: the same Karsten formula as Duel Commander. It is meant for casual decks: on the 4 casual decks it suggests 2 or 3 more lands than they play (40 against 43 for the five-color precon). The cEDH decks play 25 to 28 lands and lean on fast mana, so the formula suggests 6 to 9 more than they play. The Lumra deck plays 50 lands because its commander is built around them.
+- **Legality** uses the Commander banned list as of the February 9, 2026 announcement.
+- MTGTop8 links with `f=cEDH` (its code for multiplayer Commander) and Moxfield decks set to Commander pick the format by themselves.
+
+These mana pieces, common in Commander, are understood in every format:
+
+- **Fast mana**: Mana Vault and Grim Monolith don't untap, so their mana is counted once. Lotus Petal and other cards that sacrifice themselves for mana are used once, like a Treasure. Rituals (Dark Ritual, Rite of Flame) add their mana until the end of the turn. Mox Diamond is cast only with a land card in hand to discard.
+- **Mana that depends on the board**: Gaea's Cradle and Circle of Dreams Druid count as one mana once you control a creature. Mox Amber makes mana once a legendary creature or planeswalker is out. Bloom Tender and Faeburrow Elder make one mana of their own colors. Fellwar Stone and Exotic Orchard are counted as making the commander's colors.
+- **Lands**: City of Brass and Tarnished Citadel cost life for colored mana. Battle lands (Prairie Stream) enter untapped with two basics. Signets and the Odyssey filter lands (Darkwater Catacombs) count as one mana of either of their colors. Shadowmoor filter lands (Fetid Heath) do the same once another source of their colors is out.
+- **Land auras** like Fertile Ground and Utopia Sprawl count as a mana source from the turn after they are cast.
 
 ## Known limits
 
@@ -124,7 +140,8 @@ For Duel Commander (the 1v1 format once called French Commander):
 - Alternative costs (evoke, impending, warp, dash, delve) aren't used: a spell is always cast for its mana cost.
 - Effects that sacrifice any number of lands (Scapeshift) or return lands from the graveyard (Lumra) aren't modelled.
 - Commander tax isn't counted: in a goldfish game the commander is never removed, so it is cast once at its normal cost. Cards banned only as a commander aren't checked.
-- Multiplayer Commander is a preview: it has the command zone and the color identity check, but hasn't been tested on real decks yet.
+- cEDH decks keep many one- and two-land hands with fast mana that the bot sends back, so their mulligan rate is high. Mana from combo and engine pieces isn't modelled: Lion's Eye Diamond, Chrome Mox, the spirit guides and altars (the notes flag these), and Smothering Tithe, Deathrite Shaman and Carpet of Flowers.
+- Mana doublers (Crypt Ghast, Nissa, Who Shakes the World), cards that make other spells cheaper (the Medallions), and mana abilities a card gives to other permanents (Abundant Growth) aren't counted. The notes list these too.
 
 ## Layout
 
