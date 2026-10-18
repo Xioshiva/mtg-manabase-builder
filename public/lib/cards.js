@@ -40,17 +40,30 @@ const ROMAN = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6 };
 // 'creature', 'spell' (instants and sorceries) or null.
 // Abilities that make more than one mana ("Add {C}{C}", "Add {G}{U}", "Add three mana of
 // any one color") put the mana after the first in `extra`, one mask per mana.
-export function parseManaAbilities(text) {
+// Signets and the Odyssey filter lands: "{1}, {T}: Add {W}{U}" turns one mana into two.
+const FILTER = /^\{1\}, \{t\}: add \{([wubrg])\}\{([wubrg])\}\.?$/;
+
+// selfName: the card's name, to read "{T}, Sacrifice Lotus Petal: Add ..." as a one-use source.
+export function parseManaAbilities(text, { selfName = null } = {}) {
   const out = { mask: 0, cond: [], restricted: [], notes: [], unusable: false, extra: [] };
   for (const line of stripReminder(text).split('\n')) {
     // An ability word ("Metalcraft — ") doesn't change the ability.
     const l = line.toLowerCase().trim().replace(/^[a-z' ]+ — (?=\{t\})/, '')
       .replace(/ if [^.]+ has a luck counter on it, instead add [^.]+\./, ''); // Gemstone Caverns: just {C}
+    const filter = l.match(FILTER);
+    if (filter) {
+      // Counted as one mana of either color: what it adds over the mana it takes.
+      out.mask |= COLOR_BITS[filter[1].toUpperCase()] | COLOR_BITS[filter[2].toUpperCase()];
+      out.notes.push(`Counted as one mana that is {${filter[1].toUpperCase()}} or {${filter[2].toUpperCase()}}: it turns {1} into {${filter[1].toUpperCase()}}{${filter[2].toUpperCase()}}`);
+      continue;
+    }
     const m = l.match(/^\{t\}((?:, [^:]+)?): add (.+)$/);
     if (!m) continue;
     const cost = m[1];
+    const oneShot = selfName && (cost === `, sacrifice ${selfName.toLowerCase()}` || /^, sacrifice this (artifact|creature|enchantment)$/.test(cost));
+    if (oneShot) out.oneShot = true;
     // Everflowing Chalice: "Add {C} for each charge counter" makes nothing without counters.
-    if (/tap an untapped|sacrifice|discard|exile|\{\d|\{[wubrgc]\}/.test(cost) || /for each charge counter/.test(m[2])) {
+    else if (/tap an untapped|sacrifice|discard|exile|\{\d|\{[wubrgc]\}/.test(cost) || /for each charge counter/.test(m[2])) {
       out.unusable = true; // needs another resource; not counted as a mana source
       continue;
     }
@@ -85,6 +98,17 @@ export function parseManaAbilities(text) {
     const minLands = l.match(/activate only if you control (two|three|four|five|six|seven) or more lands/);
     // Command Tower, Arcane Signet: the colors are cut down to the commander's once it is known.
     if (/any color in your commander's color identity/.test(l)) out.identity = true;
+    // Fellwar Stone, Exotic Orchard: the colors the opponents' lands make are unknown here, so
+    // they are counted as the commander's colors (any color outside a Commander deck).
+    if (/any color that a land an opponent controls could produce/.test(l)) {
+      out.identity = true;
+      out.notes.push("Counted as the commander's colors; it really makes the colors your opponents' lands could make");
+    }
+    // Mox Amber: the colors of a legendary creature or planeswalker you control.
+    const legends = /any color among legendary creatures and planeswalkers you control/.test(l);
+    if (legends) out.identity = true;
+    // Gaea's Cradle: "Add {G} for each creature you control" is counted as one {G} once you control one.
+    const perEach = l.match(/ for each (creature|artifact|enchantment) you control/);
     if (/if a card is exiled with this land, add [^.]+ instead/.test(l)) out.notes.push('Its extra mana needs an exiled card and is not counted');
     if (/activate only if a card is exiled with/.test(l)) {
       out.notes.push('Its mana that needs an exiled card is not counted');
@@ -92,6 +116,9 @@ export function parseManaAbilities(text) {
     }
     if (/activate only if this land entered this turn or if you control a basic land/.test(l)) {
       out.cond.push({ mask, types: 0, basicOrFresh: true });
+    } else if (legends || perEach) {
+      out.cond.push({ mask, types: 0, perm: legends ? ['legendary creature', 'legendary planeswalker'] : [perEach[1]] });
+      if (perEach) out.notes.push(`Counted as one mana once you control ${/^[aeiou]/.test(perEach[1]) ? 'an' : 'a'} ${perEach[1]}; more of them add no more`);
     } else if (artifacts) {
       out.cond.push({ mask, types: 0, artifacts: COUNT_WORDS[artifacts[1]] });
     } else if (minLands) {
@@ -116,6 +143,7 @@ export function parseManaAbilities(text) {
 // surveil on entering, and the choices some lands make as they enter.
 function isManaLine(l) {
   return /^\{t\}(, pay \d+ life)?: add\b/.test(l)
+    || FILTER.test(l)
     || FETCH.test(l)
     || /enters( the battlefield)? tapped/.test(l)
     || /^as [^,]+ enters, (?:choose a (?:color|basic land type|creature type)|you may behold)/.test(l)
@@ -471,6 +499,13 @@ function parseEtbMana(text) {
   return [...m[1].matchAll(/\{([wubrgc])\}/g)].map((x) => COLOR_BITS[x[1].toUpperCase()]);
 }
 
+// Dark Ritual: an instant or sorcery whose first line adds mana.
+function parseRitual(text, typeLine) {
+  if (!/\b(Instant|Sorcery)\b/.test(typeLine)) return null;
+  const m = text.match(/^add ((?:\{[wubrgc]\})+)/m);
+  return m ? [...m[1].matchAll(/\{([wubrgc])\}/g)].map((x) => COLOR_BITS[x[1].toUpperCase()]) : null;
+}
+
 function parseSpell(face, card) {
   const typeLine = face.type_line || card.type_line || '';
   const text = stripReminder(face.oracle_text || '').toLowerCase();
@@ -495,7 +530,9 @@ function parseSpell(face, card) {
     leyline: /if [^.]+ is in your opening hand, you may begin the game with it on the battlefield/.test(text),
     grantTypes: grantedTypes(text),
     landToken: parseLandToken(text), // Overlord of the Hauntwoods' Everywhere
-    etbMana: parseEtbMana(text), // [mask...] added when it enters (Outcaster Trailblazer)
+    etbMana: parseEtbMana(text) || parseRitual(text, typeLine), // [mask...] added when it enters (Outcaster Trailblazer) or resolves (Dark Ritual)
+    // Mox Diamond: "you may discard a land card instead" of it going to the graveyard.
+    discardLand: /if [^.]+ would enter, you may discard a land card instead/.test(text),
     // Spelunking: lands come into play untapped.
     untapLands: /lands you control enter untapped/.test(text),
     landFromHand: null, // { tapped } put a land from hand onto the battlefield (Arboreal Grazer)
@@ -529,12 +566,21 @@ function parseSpell(face, card) {
   if (spell.extraLandDrops && /you may play lands from your graveyard/.test(text)) notes.push('The extra land drop is modelled; playing lands from the graveyard is not');
   // The turn we check "on curve": its mana value, plus any extra mana it asks for.
   spell.curveTurn = spell.cmc + (spell.extraCost ? spell.extraCost.generic + spell.extraCost.pips.length : 0);
+  if (spell.etbMana && !spell.isPermanent) notes.push('Its mana is added when it resolves and lasts until the end of the turn');
   if (spell.isPermanent) {
-    const mana = parseManaAbilities(face.oracle_text || '');
+    const mana = parseManaAbilities(face.oracle_text || '', { selfName: face.name || card.name });
     if (mana.mask || mana.cond.length || mana.restricted.length) {
-      spell.mana = { ...mana, sick: spell.isCreature && !/\bhaste\b/.test(text) };
+      // Rocks that enter tapped (Coldsteel Heart) wait a turn, like creatures.
+      spell.mana = { ...mana, sick: spell.isCreature && !/\bhaste\b/.test(text) || /^[^.]*\benters tapped\.$/m.test(text) };
+      // Mana Vault, Grim Monolith: they make their mana once.
+      if (/doesn't untap during your untap step/.test(text)) {
+        spell.mana.noUntap = true;
+        mana.notes.push("Doesn't untap, so its mana is counted once");
+      }
+      if (mana.oneShot) mana.notes.push('Sacrificed for its mana, so it is used once, like a Treasure');
     }
   }
+  if (spell.discardLand) notes.push('Cast only with a land card in hand to discard for it');
   return spell;
 }
 

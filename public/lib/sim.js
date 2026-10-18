@@ -135,6 +135,8 @@ export function simulateChunks(model, opts, from, to) {
         if (x.enteredTurn === turn || bf.some((y) => y.isBasic)) m |= cd.mask;
       } else if (cd.artifacts) {
         if (artifactCount() >= cd.artifacts) m |= cd.mask;
+      } else if (cd.perm) {
+        if (perms.some((p) => cd.perm.some((w) => p.typeLine.includes(w)))) m |= cd.mask; // Gaea's Cradle, Mox Amber
       } else {
         for (const y of bf) if ((y.types | grant) & cd.types) { m |= cd.mask; break; }
       }
@@ -598,6 +600,7 @@ export function simulateChunks(model, opts, from, to) {
       if (!d.spell || d.spell.noCost) continue;
       if (onlyDraw && !d.spell.effect) continue;
       if (d.spell.legendary && perms.some((p) => p.def === d)) continue; // the legend rule
+      if (d.spell.discardLand && !hand.some((ci) => defs[ci].land)) continue; // Mox Diamond
       const kind = d.spell.kind;
       const srcs = cache[kind] || (cache[kind] = sourcesFor(kind, false));
       const score = onlyDraw ? -d.spell.cmc : d.spell.cmc * 10 + (d.spell.effect ? 0 : 1) + (d.spell.mana ? 5 : 0);
@@ -622,6 +625,17 @@ export function simulateChunks(model, opts, from, to) {
     if (fromHand) hand.splice(pick, 1);
     else if (fmt.oneCommanderCast) command.length = 0; // Duel Commander: one commander from the command zone per game
     else command.splice(pick - hand.length, 1);
+    if (sp.discardLand) {
+      // Mox Diamond: discard the land in hand we'd miss least.
+      let worst = -1, low = Infinity;
+      for (let i = 0; i < hand.length; i++) {
+        const L = defs[hand[i]].land;
+        if (!L) continue;
+        const v = landValue(L);
+        if (v < low) { low = v; worst = i; }
+      }
+      hand.splice(worst, 1);
+    }
     if (sacrifice) {
       // Sacrificed instead of paying the extra mana: give up a spare Treasure or a non-mana permanent first.
       const words = [].concat(sp.extraCost.unlessType);
@@ -649,6 +663,7 @@ export function simulateChunks(model, opts, from, to) {
       Object.assign(perm, {
         L: sp.mana, mask: sp.mana.mask, types: 0, isBasic: false, isLand: false, isSource: true,
         tapped: false, usedExtra: 0, etbTapped: false, enteredTurn: turn, readyTurn: sp.mana.sick ? turn + 1 : turn,
+        isTreasure: !!sp.mana.oneShot, // Lotus Petal is sacrificed like a Treasure
       });
     }
     if (sp.treasure) {
@@ -723,7 +738,11 @@ export function simulateChunks(model, opts, from, to) {
     let spentTotal = 0;
     for (turn = 1; turn <= turns; turn++) {
       for (const x of bf) { x.tapped = false; x.usedExtra = 0; x.etbTapped = false; }
-      for (const x of perms) { x.tapped = false; x.usedExtra = 0; }
+      for (const x of perms) {
+        // Mana Vault stays tapped: once used, it makes no more mana.
+        if (x.L?.noUntap) { if (x.tapped || x.usedExtra) x.isSource = false; continue; }
+        x.tapped = false; x.usedExtra = 0;
+      }
       // Urza's Saga's last chapter: it is tapped for mana in response, then sacrificed.
       if (bf.some((x) => x.L.leavesAfter && turn >= x.enteredTurn + x.L.leavesAfter)) {
         for (let i = bf.length - 1; i >= 0; i--) if (bf[i].L.leavesAfter && turn >= bf[i].enteredTurn + bf[i].L.leavesAfter) leaveBattlefield(i);

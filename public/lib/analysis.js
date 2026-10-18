@@ -53,9 +53,10 @@ export function buildModel(parsed, cardData, format) {
       if (outside.length) warnings.push(`Outside the commander's color identity: ${outside.join(', ')}.`);
       // Command Tower and Arcane Signet only make the commander's colors.
       const keep = colorsToMask([...identity]) | COLOR_BITS.C;
+      const cut = (m) => ({ ...m, mask: m.mask & keep, cond: m.cond.map((c) => ({ ...c, mask: c.mask & keep })) });
       for (const d of cards) {
-        if (d.land?.identity) d.land = { ...d.land, mask: d.land.mask & keep };
-        if (d.spell?.mana?.identity) d.spell = { ...d.spell, mana: { ...d.spell.mana, mask: d.spell.mana.mask & keep } };
+        if (d.land?.identity) d.land = cut(d.land);
+        if (d.spell?.mana?.identity) d.spell = { ...d.spell, mana: cut(d.spell.mana) };
       }
     }
   }
