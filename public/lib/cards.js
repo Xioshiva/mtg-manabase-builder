@@ -50,6 +50,12 @@ export function parseManaAbilities(text, { selfName = null } = {}) {
     // An ability word ("Metalcraft — ") doesn't change the ability.
     const l = line.toLowerCase().trim().replace(/^[a-z' ]+ — (?=\{t\})/, '')
       .replace(/ if [^.]+ has a luck counter on it, instead add [^.]+\./, ''); // Gemstone Caverns: just {C}
+    // Bloom Tender: "{T}: For each color among permanents you control, add one mana of that color."
+    if (/^\{t\}: for each color among permanents you control, add one mana of that color\.?$/.test(l)) {
+      out.ownColors = true;
+      out.notes.push('Counted as one mana of its own colors; each other color among your permanents would add one more');
+      continue;
+    }
     const filter = l.match(FILTER);
     if (filter) {
       // Counted as one mana of either color: what it adds over the mana it takes.
@@ -106,7 +112,10 @@ export function parseManaAbilities(text, { selfName = null } = {}) {
     }
     // Mox Amber: the colors of a legendary creature or planeswalker you control.
     const legends = /any color among legendary creatures and planeswalkers you control/.test(l);
-    if (legends) out.identity = true;
+    if (legends) {
+      out.identity = true;
+      out.notes.push("Counted as the commander's colors once a legendary creature or planeswalker is out");
+    }
     // Gaea's Cradle: "Add {G} for each creature you control" is counted as one {G} once you control one.
     const perEach = l.match(/ for each (creature|artifact|enchantment) you control/);
     if (/if a card is exiled with this land, add [^.]+ instead/.test(l)) out.notes.push('Its extra mana needs an exiled card and is not counted');
@@ -569,6 +578,7 @@ function parseSpell(face, card) {
   if (spell.etbMana && !spell.isPermanent) notes.push('Its mana is added when it resolves and lasts until the end of the turn');
   if (spell.isPermanent) {
     const mana = parseManaAbilities(face.oracle_text || '', { selfName: face.name || card.name });
+    if (mana.ownColors) mana.mask |= colorsToMask(card.color_identity || []);
     if (mana.mask || mana.cond.length || mana.restricted.length) {
       // Rocks that enter tapped (Coldsteel Heart) wait a turn, like creatures.
       spell.mana = { ...mana, sick: spell.isCreature && !/\bhaste\b/.test(text) || /^[^.]*\benters tapped\.$/m.test(text) };
