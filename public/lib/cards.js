@@ -97,7 +97,9 @@ export function parseManaAbilities(text, { selfName = null } = {}) {
       else { kind = 'unknown'; out.notes.push(`Mana only for ${spend[1]} spells is ignored`); }
       if (/chosen type/.test(l)) out.notes.push('Treats "creature of the chosen type" mana as usable for any creature');
     }
-    const lifeCost = Number(life || 0) + (/deals 1 damage to you/.test(l) ? 1 : 0);
+    // "This land deals 1 damage to you" costs life for colored mana (Ancient Tomb's {C}{C} stays free).
+    const damage = Number((l.match(/deals (\d+) damage to you/) || [])[1] || 0);
+    const lifeCost = Number(life || 0) + (mask & ~COLOR_BITS.C ? damage : 0);
     const condTypes = l.match(/activate only if you control an? (\w+)(?: or an? (\w+))?/);
     const artifacts = l.match(/activate only if you control (two|three|four) or more artifacts/);
     // Temple of the False God: "Activate only if you control five or more lands."
@@ -119,6 +121,10 @@ export function parseManaAbilities(text, { selfName = null } = {}) {
     // Gaea's Cradle: "Add {G} for each creature you control" is counted as one {G} once you control one.
     const perEach = l.match(/ for each (creature|artifact|enchantment) you control/);
     if (/if a card is exiled with this land, add [^.]+ instead/.test(l)) out.notes.push('Its extra mana needs an exiled card and is not counted');
+    if (/activate only if you control a creature with power 4 or greater/.test(l)) {
+      out.notes.push('Its mana that needs a creature with power 4 or greater is not counted'); // Fanatic of Rhonas
+      continue;
+    }
     if (/activate only if a card is exiled with/.test(l)) {
       out.notes.push('Its mana that needs an exiled card is not counted');
       continue;
@@ -160,6 +166,7 @@ function isManaLine(l) {
     || /^when [^,]+ enters, (?:surveil|scry) \d+\.?$/.test(l)
     || /^when [^,]+ enters, return a land you control to its owner's hand\./.test(l)
     || /^when you play another land, sacrifice [^.]+\.$/.test(l)
+    || /^whenever [^,]+ becomes tapped, it deals \d+ damage to you\.?$/.test(l)
     || /^when [^,]+ enters, (?:sacrifice (?:a|an|one|two|three) (?:untapped )?lands?|add one mana of any color)\.?$/.test(l)
     || GRANTS.test(l)
     || /^(hexproof|indestructible)\.?$/.test(l);
@@ -249,6 +256,12 @@ export function parseLand(face, producedFallback) {
     land.leavesAfter = Math.max(...chapters, 1) - 1;
     land.notes.push(`Counted as a land that makes {C} until it is sacrificed after chapter ${['', 'I', 'II', 'III', 'IV', 'V', 'VI'][land.leavesAfter + 1]}; its other chapters are not modelled`);
   }
+  // City of Brass: "Whenever this land becomes tapped, it deals 1 damage to you."
+  const tapDamage = lower.match(/^whenever [^,]+ becomes tapped, it deals (\d+) damage to you\.?$/m);
+  if (tapDamage && mana.mask & ~COLOR_BITS.C) {
+    mana.restricted.push({ mask: mana.mask, kind: null, life: Number(tapDamage[1]) });
+    mana.mask = 0;
+  }
   land.mask |= mana.mask;
   land.cond = mana.cond;
   land.restricted = mana.restricted;
@@ -310,6 +323,8 @@ export function parseLand(face, producedFallback) {
   if (sac) { land.sacrifice = num(sac[1]); land.sacrificeUntapped = !!sac[2]; }
   if (/when [^.]*enters[^.]*, add one mana of any color/.test(lower)) land.etbMana = ANY_COLOR;
   if (/when you play another land, sacrifice/.test(lower)) land.leavesOnLand = true;
+  // Vesuva: a copy of another land, which is not modelled. (Echoing Deeps still makes {C}.)
+  if (/enter(?: tapped)? as a copy of (?:any|a) land/.test(lower) && !hasMana && !land.mask) land.notes.push("Copying another land is not modelled, so it makes no mana here");
   land.grantTypes = grantedTypes(text);
   // Urborg is a Swamp itself, so it taps for {B} though its text has no mana ability.
   // Its own types only change on the battlefield (the grant), so a fetch can't find it as a Swamp.
@@ -508,9 +523,10 @@ function parseEtbMana(text) {
   return [...m[1].matchAll(/\{([wubrgc])\}/g)].map((x) => COLOR_BITS[x[1].toUpperCase()]);
 }
 
-// Dark Ritual: an instant or sorcery whose first line adds mana.
+// Dark Ritual: an instant or sorcery whose first line adds mana. Culling the Weak's needs a
+// creature to sacrifice, so it is left out.
 function parseRitual(text, typeLine) {
-  if (!/\b(Instant|Sorcery)\b/.test(typeLine)) return null;
+  if (!/\b(Instant|Sorcery)\b/.test(typeLine) || /as an additional cost to cast this spell, sacrifice/.test(text)) return null;
   const m = text.match(/^add ((?:\{[wubrgc]\})+)/m);
   return m ? [...m[1].matchAll(/\{([wubrgc])\}/g)].map((x) => COLOR_BITS[x[1].toUpperCase()]) : null;
 }
@@ -701,7 +717,9 @@ export function landSummary(land) {
   if (land.restricted.some((r) => r.life)) extras.push('colored mana costs life');
   if (land.restricted.some((r) => r.kind === 'creature')) extras.push('colors only for creatures');
   if (land.restricted.some((r) => r.kind === 'spell')) extras.push('colors only for instants/sorceries');
-  if (land.cond.length) extras.push('second color needs the right land in play');
+  const perm = land.cond.find((c) => c.perm);
+  if (perm) extras.push(`makes mana once you control ${/^[aeiou]/.test(perm.perm[0]) ? 'an' : 'a'} ${perm.perm[0]}`);
+  if (land.cond.some((c) => !c.perm)) extras.push('second color needs the right land in play');
   if (land.fetch) {
     const f = land.fetch;
     const untap = !f.tapped ? '' : f.untapAt ? ' (untaps with 4+ lands)' : f.untapIfBehold ? ` (untaps if you behold ${/^[aeiou]/.test(f.untapIfBehold) ? 'an' : 'a'} ${f.untapIfBehold[0].toUpperCase() + f.untapIfBehold.slice(1)})` : ', tapped';

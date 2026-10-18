@@ -26,14 +26,14 @@ export const FORMATS = {
   duel: {
     id: 'duel', name: 'Duel Commander', status: 'ready',
     deckSize: 100, librarySize: 99, maxCopies: 1, handSize: 7, freeMulligan: false, multiplayer: false,
-    commander: true, oneCommanderCast: true,
+    commander: true, oneCommanderCast: true, keepCountsRocks: true,
     legalityKey: 'duel',
     landFormula: (avg, cheap) => 31.42 + 3.13 * avg - 0.28 * cheap,
   },
   commander: {
     id: 'commander', name: 'Commander', status: 'preview',
     deckSize: 100, librarySize: 99, maxCopies: 1, handSize: 7, freeMulligan: true, multiplayer: true,
-    commander: true,
+    commander: true, keepCountsRocks: true,
     keepRanges: { 7: [3, 5], 6: [2, 4], 5: [2, 4] },
     legalityKey: 'commander',
     landFormula: (avg, cheap) => 31.42 + 3.13 * avg - 0.28 * cheap,

@@ -146,7 +146,7 @@ test('Command Tower and Arcane Signet make only the commander\'s colors', () => 
   assert.equal(real('Command Tower').land.mask, ANY_COLOR);
 });
 
-const DECK_DIRS = { standard: 'decks', pioneer: 'pioneer', modern: 'modern', duel: 'duel' };
+const DECK_DIRS = { standard: 'decks', pioneer: 'pioneer', modern: 'modern', duel: 'duel', commander: 'commander' };
 // Decks whose plan the headline numbers don't describe, so only a looser check applies.
 const UNUSUAL = {
   'amulet-titan-900437.txt': 'bounce lands return a land, so fewer lands stay in play',

@@ -90,6 +90,11 @@ export function simulateChunks(model, opts, from, to) {
     for (let k = 0; k < d.count; k++) (k < inCommand ? commandList : deckList).push(i);
   });
   const landish = defs.map((d) => !!(d.land || d.mdfcLand));
+  // What a hand counts as lands when deciding to keep it: Commander decks also count cheap
+  // rocks and dorks that keep making mana (Sol Ring, Arcane Signet, Llanowar Elves), not
+  // one-use ones (Lotus Petal, Mana Vault) or Mox Diamond, which costs a land.
+  const rock = (d) => { const m = d.spell?.mana; return !!m && d.spell.cmc <= 2 && !!m.mask && !m.oneShot && !m.noUntap && !d.spell.discardLand; };
+  const keepish = defs.map((d, i) => landish[i] || (!!fmt.keepCountsRocks && rock(d)));
   const trackedSet = new Uint8Array(defs.length);
   for (const i of tracked) trackedSet[i] = 1;
   const seenTurn = new Int32Array(defs.length);
@@ -681,7 +686,7 @@ export function simulateChunks(model, opts, from, to) {
       hand = lib.splice(lib.length - handSize, handSize);
       const charged = fmt.freeMulligan && mulls > 0 ? mulls - 1 : mulls;
       const size = handSize - charged;
-      const lands = hand.filter((ci) => landish[ci]).length;
+      const lands = hand.filter((ci) => keepish[ci]).length;
       const range = keepRanges[size];
       if (!range || (lands >= range[0] && lands <= range[1])) {
         for (let k = 0; k < charged; k++) {

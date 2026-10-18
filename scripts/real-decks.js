@@ -26,7 +26,7 @@ export function loadRealCards() {
 }
 
 // Where each format's decklists live under test/fixtures/real.
-export const DECK_DIRS = { standard: 'decks', pioneer: 'pioneer', modern: 'modern', duel: 'duel' };
+export const DECK_DIRS = { standard: 'decks', pioneer: 'pioneer', modern: 'modern', duel: 'duel', commander: 'commander' };
 
 const cards = loadRealCards();
 const formats = opt('--format') ? [opt('--format')] : Object.keys(DECK_DIRS);
