@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Runs every real decklist in test/fixtures/real (decks/ is Standard; pioneer/, modern/ and duel/ hold
-// the other formats) through the builder using the saved card data
+// Runs every real decklist in test/fixtures/real (decks/ is Standard; pioneer/, modern/, duel/ and
+// commander/ hold the other formats) through the builder using the saved card data
 // (test/fixtures/real/cards.json) and prints what it understood: lands and how they
 // enter, detected draw spells, anything unrecognised, and the simulation's headline numbers.
-//   node scripts/real-decks.js [--format standard|pioneer|modern|duel] [--games 4000] [--optimize]
+//   node scripts/real-decks.js [--format standard|pioneer|modern|duel|commander] [--games 4000] [--optimize]
 //                              [--deck name-substring] [--threads N]
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
