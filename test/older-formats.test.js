@@ -48,6 +48,26 @@ test('fetchlands fetch the colors the hand needs, untapped, and cost life', () =
   assert.ok(shocks.lifePaidPerGame > fetches.lifePaidPerGame, `${shocks.lifePaidPerGame} vs ${fetches.lifePaidPerGame}`);
 });
 
+test('a surveil land goes down on a turn its mana is not needed; a shockland is kept to enter untapped', () => {
+  const archive = (n) => land('Meticulous Archive', '({T}: Add {W} or {U}.)\nThis land enters tapped.\nWhen this land enters, surveil 1.', 'Land — Plains Island', n);
+  const twos = spell('Two', '{1}{U}', 2, 20);
+  // Turn 1 has nothing to cast, so the Archive goes down tapped then and the Fountain
+  // comes in untapped on turn 2, just as an Island would.
+  const fountains = sim([archive(20), fountain(20), twos]);
+  const islands = sim([archive(20), basicLandDef('U', 20), twos]);
+  assert.ok(fountains.castOnCurve > islands.castOnCurve - 0.01, `${fountains.castOnCurve} vs ${islands.castOnCurve}`);
+  // A fetch is kept while another land does as well, and finds the Archive on a turn its
+  // mana isn't needed.
+  const fetchesTo = (other) => sim([strand(8), archive(8), other(8), spell('Two', '{1}{U}', 2, 36)]).castOnCurve;
+  assert.ok(fetchesTo(fountain) > 0.97, `${fetchesTo(fountain)}`);
+  assert.ok(fetchesTo((n) => basicLandDef('U', n)) > 0.95, `${fetchesTo((n) => basicLandDef('U', n))}`);
+  // Evolving Wilds finds a tapped Forest, so it still goes down first while an untapped
+  // Forest waits in hand.
+  const wilds = land('Evolving Wilds', '{T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.', 'Land', 12);
+  const wildsCurve = sim([wilds, basicLandDef('G', 12), spell('Two', '{1}{G}', 2, 36)]).castOnCurve;
+  assert.ok(wildsCurve > 0.85, `${wildsCurve}`);
+});
+
 test("Urza's lands count as one {C} each, with a note that the Tron bonus isn't modelled", () => {
   const tower = urza('Tower', 'Mine', 'Power-Plant', 4, 3);
   assert.equal(tower.land.mask, C.C);

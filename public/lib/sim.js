@@ -489,8 +489,9 @@ export function simulateChunks(model, opts, from, to) {
         if (L.legendary && bf.some((y) => y.L === L)) continue; // a second copy would just die
         // Lotus Field with too few other lands would sacrifice itself for nothing.
         if (L.sacrifice && !L.sacrificeUntapped && bf.length < L.sacrifice && !untapAll) continue;
-        // A fetch is judged by each different land it can find.
-        const finds = L.fetch ? fetchTargets(L.fetch) : [-1];
+        // A fetch is judged by each different land it can find. A fetch whose land enters as it
+        // would from hand skips a land also in hand: playing that copy keeps the fetch.
+        const finds = L.fetch ? fetchTargets(L.fetch).filter((k) => L.fetch.tapped || !hand.includes(lib[k])) : [-1];
         for (const k of finds) {
           const target = k >= 0 ? defs[lib[k]].land : null;
           const enters = target || L;
@@ -526,6 +527,11 @@ export function simulateChunks(model, opts, from, to) {
             if (enters.etb === 'slow' && tapped) score -= 3;
             if (enters.isBasic) score += 1; // keeps duals that care about basics happy later
             if (shock && !tapped) score -= 8;
+            // When a tapped land costs nothing this turn, play one that looks at the top of the
+            // library, and keep a shockland or a fetch in hand to make untapped mana later.
+            score += 3 * ((enters.surveil || 0) + (enters.scry || 0));
+            if (shock && tapped) score -= 2;
+            if (L.fetch && tapped) score -= 3;
             if (target) score += 2 * need; // which land to fetch: the colors we have least of
             if (enters.bounce) score -= bf.length ? 5 : 200;
             if (enters.sacrifice) {
