@@ -31,26 +31,79 @@ function stripReminder(text) {
 
 const PERM_TYPES = ['equipment', 'artifact', 'creature', 'enchantment', 'planeswalker', 'vehicle', 'legendary creature', 'legendary'];
 
+const COUNT_WORDS = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7 };
+const ROMAN = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6 };
+
 // Reads "{T}: Add ..." abilities. Free, unconditional mana goes in `mask`; mana that needs
 // a land type or a basic in play goes in `cond`; mana that costs life or can only be
 // spent on some spells goes in `restricted` as { mask, kind, life } where kind is
 // 'creature', 'spell' (instants and sorceries) or null.
-export function parseManaAbilities(text) {
-  const out = { mask: 0, cond: [], restricted: [], notes: [], unusable: false };
+// Abilities that make more than one mana ("Add {C}{C}", "Add {G}{U}", "Add three mana of
+// any one color") put the mana after the first in `extra`, one mask per mana.
+// Signets and the Odyssey filter lands: "{1}, {T}: Add {W}{U}" turns one mana into two.
+const FILTER = /^\{1\}, \{t\}: add \{([wubrg])\}\{([wubrg])\}\.?$/;
+// Shadowmoor filter lands: "{W/B}, {T}: Add {W}{W}, {W}{B}, or {B}{B}" needs one of those colors first.
+const HYBRID_FILTER = /^\{([wubrg])\/([wubrg])\}, \{t\}: add \{\1\}\{\1\}, \{\1\}\{\2\}, or \{\2\}\{\2\}\.?$/;
+
+// selfName: the card's name, to read "{T}, Sacrifice Lotus Petal: Add ..." as a one-use source.
+export function parseManaAbilities(text, { selfName = null } = {}) {
+  const out = { mask: 0, cond: [], restricted: [], notes: [], unusable: false, extra: [] };
+  // Mana abilities that cost no life, and the cheapest life cost among the others: a source
+  // whose every ability costs life (City of Brass, Mana Confluence, Ancient Tomb) costs it on every tap.
+  let freeLines = 0, lifeLines = Infinity;
   for (const line of stripReminder(text).split('\n')) {
-    const l = line.toLowerCase().trim();
+    // An ability word ("Metalcraft — ") doesn't change the ability.
+    const l = line.toLowerCase().trim().replace(/^[a-z' ]+ — (?=\{t\})/, '')
+      .replace(/ if [^.]+ has a luck counter on it, instead add [^.]+\./, ''); // Gemstone Caverns: just {C}
+    // Bloom Tender: "{T}: For each color among permanents you control, add one mana of that color."
+    if (/^\{t\}: for each color among permanents you control, add one mana of that color\.?$/.test(l)) {
+      out.ownColors = true;
+      out.notes.push('Counted as one mana of each of its own colors; each other color among your permanents would add one more');
+      freeLines++;
+      continue;
+    }
+    const filter = l.match(FILTER);
+    if (filter) {
+      // Counted as one mana of either color: what it adds over the mana it takes. A Signet is
+      // a free source; an Odyssey filter land needs another source's mana (see parseLand).
+      out.filtered = (out.filtered || 0) | COLOR_BITS[filter[1].toUpperCase()] | COLOR_BITS[filter[2].toUpperCase()];
+      out.notes.push(`Counted as one mana that is {${filter[1].toUpperCase()}} or {${filter[2].toUpperCase()}}: it turns {1} into {${filter[1].toUpperCase()}}{${filter[2].toUpperCase()}}`);
+      freeLines++;
+      continue;
+    }
+    const hybrid = l.match(HYBRID_FILTER);
+    if (hybrid) {
+      const [x, y] = [hybrid[1].toUpperCase(), hybrid[2].toUpperCase()];
+      out.cond.push({ mask: COLOR_BITS[x] | COLOR_BITS[y], types: 0, source: COLOR_BITS[x] | COLOR_BITS[y] });
+      out.notes.push(`Counted as one mana that is {${x}} or {${y}} once another source of {${x}} or {${y}} is out (it really turns that mana into any two of them)`);
+      freeLines++;
+      continue;
+    }
     const m = l.match(/^\{t\}((?:, [^:]+)?): add (.+)$/);
     if (!m) continue;
     const cost = m[1];
-    if (/tap an untapped|sacrifice|discard|exile|\{\d|\{[wubrgc]\}/.test(cost)) {
+    const oneShot = selfName && (cost === `, sacrifice ${selfName.toLowerCase()}` || /^, sacrifice this (artifact|creature|enchantment)$/.test(cost));
+    if (oneShot) out.oneShot = true;
+    // Everflowing Chalice: "Add {C} for each charge counter" and Séance Board's "Add X mana,
+    // where X is the number of soul counters" make nothing without counters.
+    else if (/tap an untapped|sacrifice|discard|exile|\{\d|\{[wubrgc]\}/.test(cost) || /for each charge counter|^x mana[^.]*\bnumber of [a-z]+ counters/.test(m[2])) {
       out.unusable = true; // needs another resource; not counted as a mana source
       continue;
     }
     const life = (cost.match(/pay (\d+) life/) || [])[1];
     const addPart = line.slice(line.toLowerCase().indexOf(': add') + 5);
+    const first = addPart.split('.')[0];
     let mask = 0;
-    if (/any color|any one color|any type/.test(l)) mask |= ANY_COLOR;
-    for (const sym of addPart.split('.')[0].matchAll(/\{([WUBRGC])\}/g)) mask |= COLOR_BITS[sym[1]];
+    if (/any color|any one color|any type|any combination of colors/.test(l)) mask |= ANY_COLOR;
+    const syms = [...first.matchAll(/\{([WUBRGC])\}/g)].map((x) => COLOR_BITS[x[1]]);
+    // "{W} or {U}" is one mana of either color; "{G}{U}" is two mana.
+    const several = /^\s*(\{[WUBRGC]\}){2,}\s*$/i.test(first);
+    for (const b of several ? syms.slice(0, 1) : syms) mask |= b;
+    let extra = several ? syms.slice(1) : [];
+    const many = first.toLowerCase().match(/\b(two|three|four|five) mana (?:of any one color|in any combination of colors|of any color)/);
+    if (many) extra = Array(COUNT_WORDS[many[1]] - 1).fill(ANY_COLOR);
+    // Urza's lands: only their plain {C} is counted.
+    if (/if you control an? [^.]+ and an? [^.]+, add (?:\{c\})+ instead/.test(l)) out.notes.push("Counted as one {C}; the extra mana with the other Urza's lands is not modelled");
     if (/one mana of the chosen color/.test(l)) out.chosenColor = true;
     let kind = null;
     const spend = l.match(/spend this mana only to cast (?:an? )?([a-z ]+?) spells?/);
@@ -59,21 +112,75 @@ export function parseManaAbilities(text) {
       else if (/creature/.test(spend[1])) kind = 'creature';
       else { kind = 'unknown'; out.notes.push(`Mana only for ${spend[1]} spells is ignored`); }
       if (/chosen type/.test(l)) out.notes.push('Treats "creature of the chosen type" mana as usable for any creature');
+    } else if (/spend this mana only to activate abilities/.test(l)) {
+      kind = 'unknown'; // Shang-Chi: its mana can't cast spells
+      out.notes.push('Mana only for activating abilities is ignored');
     }
-    const lifeCost = Number(life || 0) + (/deals 1 damage to you/.test(l) ? 1 : 0);
+    if (many && /any one color/.test(many[0]) && kind !== 'unknown') out.notes.push(`Counts its ${many[1]} mana as any colors, though they must all be one color`);
+    // Jegantha: "This mana can't be spent to pay generic mana costs" is counted as one mana.
+    if (/can't be spent to pay generic mana costs/.test(l) && extra.length) {
+      for (const e of extra) mask |= e;
+      extra = [];
+      out.notes.push("Counted as one mana of any of its colors: the rest of its mana can't pay generic costs");
+    }
+    // "This creature deals 1 damage to you" costs life for colored mana. Ancient Tomb's {C}{C}
+    // stays two mana; its 2 damage goes in tapLife below.
+    const damage = Number((l.match(/deals (\d+) damage to you/) || [])[1] || 0);
+    const lifeCost = Number(life || 0) + (mask & ~COLOR_BITS.C ? damage : 0);
     const condTypes = l.match(/activate only if you control an? (\w+)(?: or an? (\w+))?/);
+    const artifacts = l.match(/activate only if you control (two|three|four) or more artifacts/);
+    // Temple of the False God: "Activate only if you control five or more lands."
+    const minLands = l.match(/activate only if you control (two|three|four|five|six|seven) or more lands/);
+    // Command Tower, Arcane Signet: the colors are cut down to the commander's once it is known.
+    if (/any color in your commander's color identity/.test(l)) out.identity = true;
+    // Fellwar Stone, Exotic Orchard: the colors the opponents' lands make are unknown here, so
+    // they are counted as the commander's colors (any color outside a Commander deck).
+    if (/any color that a land an opponent controls could produce/.test(l)) {
+      out.identity = true;
+      out.notes.push("Counted as the commander's colors; it really makes the colors your opponents' lands could make");
+    }
+    // Mox Amber: the colors of a legendary creature or planeswalker you control.
+    const legends = /any color among legendary creatures and planeswalkers you control/.test(l);
+    if (legends) {
+      out.identity = true;
+      out.notes.push("Counted as the commander's colors once a legendary creature or planeswalker is out");
+    }
+    // Gaea's Cradle: "Add {G} for each creature you control" is counted as one {G} once you control one.
+    const perEach = l.match(/ for each (creature|artifact|enchantment) you control/);
+    if (/if a card is exiled with this land, add [^.]+ instead/.test(l)) out.notes.push('Its extra mana needs an exiled card and is not counted');
+    if (/activate only if you control a creature with power 4 or greater/.test(l)) {
+      out.notes.push('Its mana that needs a creature with power 4 or greater is not counted'); // Fanatic of Rhonas
+      continue;
+    }
+    if (/activate only if a card is exiled with/.test(l)) {
+      out.notes.push('Its mana that needs an exiled card is not counted');
+      continue;
+    }
+    const lineLife = Number(life || 0) + damage;
+    if (lineLife) lifeLines = Math.min(lifeLines, lineLife); else freeLines++;
     if (/activate only if this land entered this turn or if you control a basic land/.test(l)) {
       out.cond.push({ mask, types: 0, basicOrFresh: true });
+    } else if (legends || perEach) {
+      out.cond.push({ mask, types: 0, perm: legends ? ['legendary creature', 'legendary planeswalker'] : [perEach[1]] });
+      if (perEach) out.notes.push(`Counted as one mana once you control ${/^[aeiou]/.test(perEach[1]) ? 'an' : 'a'} ${perEach[1]}; more of them add no more`);
+    } else if (artifacts) {
+      out.cond.push({ mask, types: 0, artifacts: COUNT_WORDS[artifacts[1]] });
+    } else if (minLands) {
+      out.minLands = COUNT_WORDS[minLands[1]];
+      out.mask |= mask;
+      if (extra.length > out.extra.length) out.extra = extra;
     } else if (condTypes && typeBits(condTypes[0])) {
       out.cond.push({ mask, types: typeBits(condTypes[0]) });
     } else if (kind || lifeCost) {
       out.restricted.push({ mask, kind, life: lifeCost });
-    } else if (/activate only/.test(l)) {
-      out.notes.push(`Unrecognised condition on "${line.trim()}", treated as always available`);
+      if (extra.length && kind !== 'unknown') out.notes.push('Only the first mana of an ability that costs life or only casts some spells is counted');
+    } else {
+      if (/activate only/.test(l)) out.notes.push(`Unrecognised condition on "${line.trim()}", treated as always available`);
       out.mask |= mask;
-    } else out.mask |= mask;
-    if (/add \{[wubrgc]\}\{[wubrgc]\}/.test(l)) out.notes.push('Abilities that add two mana count as one source');
+      if (extra.length > out.extra.length) out.extra = extra;
+    }
   }
+  if (!freeLines && lifeLines !== Infinity) out.tapLife = lifeLines;
   return out;
 }
 
@@ -81,29 +188,66 @@ export function parseManaAbilities(text) {
 // surveil on entering, and the choices some lands make as they enter.
 function isManaLine(l) {
   return /^\{t\}(, pay \d+ life)?: add\b/.test(l)
-    || /^\{t\}, (?:pay \d+ life, )?sacrifice [^:]+: search your library for an? basic/.test(l)
+    || FILTER.test(l) || HYBRID_FILTER.test(l)
+    || FETCH.test(l)
     || /enters( the battlefield)? tapped/.test(l)
     || /^as [^,]+ enters, (?:choose a (?:color|basic land type|creature type)|you may behold)/.test(l)
     || /^this land is the chosen type\.?$/.test(l)
-    || /^when [^,]+ enters, surveil \d+\.?$/.test(l);
+    || /^when [^,]+ enters, (?:surveil|scry) \d+\.?$/.test(l)
+    || /^when [^,]+ enters, return a land you control to its owner's hand\./.test(l)
+    || /^when you play another land, sacrifice [^.]+\.$/.test(l)
+    || /^whenever [^,]+ becomes tapped, it deals \d+ damage to you\.?$/.test(l)
+    || /^when [^,]+ enters, (?:sacrifice (?:a|an|one|two|three) (?:untapped )?lands?|add one mana of any color)\.?$/.test(l)
+    || GRANTS.test(l)
+    || /^(hexproof|indestructible)\.?$/.test(l);
 }
+
+// "Each land is a Swamp in addition to its other land types" (Urborg), "Lands you control are
+// every basic land type in addition to their other types" (Leyline of the Guildpact).
+const GRANTS = /^(?:each land is an? (\w+)|lands you control are every basic land type) in addition to (?:its|their) other (?:land )?types\.?$/;
+function grantedTypes(text) {
+  for (const line of text.toLowerCase().split('\n')) {
+    const m = line.trim().match(GRANTS);
+    if (m) return m[1] ? typeBits(m[1]) : ANY_COLOR;
+  }
+  return 0;
+}
+
+// "{T}, (Pay 1 life,) Sacrifice this land: Search your library for a basic land card /
+// a Plains or Island card, put it onto the battlefield (tapped)".
+const FETCH = /^\{t\}, (?:pay (\d+) life, )?sacrifice [^:]+: search your library for an? (basic )?([a-z ,]{1,60}?) card, put it onto the battlefield( tapped)?/;
 
 export function parseLand(face, producedFallback) {
   const typeLine = face.type_line || '';
   const types = subtypes(typeLine);
   const land = {
     mask: types, // basic land types tap for their color
-    cond: [], // [{ mask, types }] mana that needs a land type (verges) or a basic in play
+    cond: [], // [{ mask, types }] mana that needs a land type (verges), a basic, a permanent (perm) or another source (source)
     restricted: [], // [{ mask, kind, life }] mana that costs life or only casts some spells
+    tapLife: 0, // life paid on every tap (City of Brass, Mana Confluence, Ancient Tomb)
     choices: null, // [mask...] picked when played (pathways, thriving lands, Multiversal Passage)
     choiceSetsType: false, // the chosen color is also the land's basic land type
     etb: 'untapped',
     etbTypes: 0,
     etbPerm: null, // permanent type that makes it enter untapped ("unless you control an Equipment")
+    etbCount: 0, // how many lands of etbTypes it needs (Mystic Sanctuary: three other Islands), or basics for `basic`
     types,
     isBasic: /\bBasic\b/.test(typeLine),
+    legendary: /\bLegendary\b/.test(typeLine),
+    isArtifact: /\bArtifact\b/.test(typeLine), // counts for metalcraft (Darksteel Citadel)
     fetch: null,
+    extra: [], // more mana from one tap (see parseManaAbilities)
     surveil: 0,
+    scry: 0,
+    bounce: false, // returns a land to hand as it enters (Simic Growth Chamber)
+    sacrifice: 0, // lands sacrificed as it enters (Lotus Field)
+    sacrificeUntapped: false, // only untapped ones (older Lotus Field wording)
+    etbMana: 0, // one mana, this turn only, as it enters (Crumbling Vestige)
+    grantTypes: 0, // land types it gives every land (Urborg, Yavimaya)
+    leavesAfter: 0, // turns until it is gone (Urza's Saga is sacrificed after chapter III)
+    leavesOnLand: false, // sacrificed when you play another land (City of Traitors)
+    minLands: 0, // makes no mana until you control this many lands (Temple of the False God)
+    identity: false, // makes "any color in your commander's color identity" (Command Tower)
     shockLife: 0, // life paid to have it enter untapped
     utility: false, // does something besides making mana (creature land, card draw, ...)
     notes: [],
@@ -113,28 +257,57 @@ export function parseLand(face, producedFallback) {
 
   for (const line of text.split('\n')) {
     const l = line.toLowerCase().trim();
-    // Only a land whose own ability is just "{T}, (pay life,) sacrifice: search for a basic" is a fetch.
-    const fetch = l.match(/^\{t\}, (?:pay (\d+) life, )?sacrifice [^:]+: search your library for an? basic ([a-z ,]{1,60}?) card/);
-    if (fetch) {
+    // Only a land whose own ability is just "{T}, (pay life,) sacrifice: search for a land" is a fetch.
+    const fetch = l.match(FETCH);
+    // "a basic land card" finds any basic; "a Plains or Island card" any land with those types.
+    const fetchTypes = fetch && (typeBits(fetch[3]) || (fetch[2] && /^land$/.test(fetch[3]) ? ANY_COLOR : 0));
+    if (fetchTypes) {
       const behold = l.match(/you may behold an? (\w+)\. if you do, untap/);
       land.fetch = {
-        types: typeBits(fetch[2]) || ANY_COLOR,
+        types: fetchTypes,
+        basicOnly: !!fetch[2],
+        tapped: !!fetch[4],
         untapAt: /four or more lands, untap/.test(l) ? 4 : 0,
         life: Number(fetch[1] || 0),
         untapIfBehold: behold ? behold[1] : null,
       };
     }
   }
-  const mana = parseManaAbilities(text);
+  let mana = parseManaAbilities(text);
+  // Basics like Wastes only have their mana ability as reminder text.
+  if (!mana.mask && !mana.cond.length && !mana.restricted.length && !types && !land.fetch) {
+    const reminder = parseManaAbilities((face.oracle_text || '').replace(/[()]/g, ''));
+    if (reminder.mask) mana = reminder;
+  }
+  // Urza's Saga: chapter I gives it "{T}: Add {C}", and it is sacrificed after its last chapter.
+  const sagaMana = text.match(/^I — [^\n]*gains "(\{T\}: Add [^"]+)"/m);
+  if (sagaMana && /\bSaga\b/.test(typeLine)) {
+    mana = parseManaAbilities(sagaMana[1]);
+    const chapters = (text.match(/^(I|II|III|IV|V|VI)(?:, (?:I|II|III|IV|V|VI))* —/gm) || []).map((c) => ROMAN[c.split(' ')[0].replace(',', '').toLowerCase()] || 0);
+    land.leavesAfter = Math.max(...chapters, 1) - 1;
+    land.notes.push(`Counted as a land that makes {C} until it is sacrificed after chapter ${['', 'I', 'II', 'III', 'IV', 'V', 'VI'][land.leavesAfter + 1]}; its other chapters are not modelled`);
+  }
+  // City of Brass: "Whenever this land becomes tapped, it deals 1 damage to you."
+  const tapDamage = lower.match(/^whenever [^,]+ becomes tapped, it deals (\d+) damage to you\.?$/m);
+  if (tapDamage) mana.tapLife = (mana.tapLife || 0) + Number(tapDamage[1]);
+  // Odyssey filter lands ("{1}, {T}: Add {U}{B}") need another source's mana to make theirs.
+  if (mana.filtered) mana.cond.push({ mask: mana.filtered, types: 0, source: ANY_COLOR | COLOR_BITS.C });
   land.mask |= mana.mask;
   land.cond = mana.cond;
   land.restricted = mana.restricted;
+  land.extra = mana.extra;
+  land.minLands = mana.minLands || 0;
+  land.tapLife = mana.tapLife || 0;
+  land.identity = !!mana.identity;
   land.notes.push(...mana.notes);
 
   const chooseOther = lower.match(/choose a color other than (\w+)/);
   if (chooseOther) {
     const banned = COLOR_WORD[chooseOther[1]];
     land.choices = Object.keys(BASIC_BY_COLOR).filter((c) => c !== banned).map((c) => COLOR_BITS[c]);
+  }
+  if (!chooseOther && mana.chosenColor && /as [^.]*enters, choose a color\./.test(lower)) {
+    land.choices = Object.keys(BASIC_BY_COLOR).map((c) => COLOR_BITS[c]);
   }
   if (/choose a basic land type/.test(lower) && /is the chosen type/.test(lower)) {
     land.choices = Object.keys(BASIC_BY_COLOR).map((c) => COLOR_BITS[c]);
@@ -143,14 +316,20 @@ export function parseLand(face, producedFallback) {
 
   const hasMana = land.mask || land.cond.length || land.restricted.length || land.choices || land.fetch;
   if (!hasMana && producedFallback) land.mask = colorsToMask(producedFallback);
+  // Cabal Coffers: "{2}, {T}: Add {B} for each Swamp you control."
+  if (!hasMana && !land.mask && /^[^"\n]*: add\b/m.test(lower) && !/as a copy of/.test(lower)) land.notes.push('Its mana ability needs another resource, so the simulator does not use it as a mana source');
 
   if (/enters( the battlefield)? tapped/.test(lower)) {
     let m;
     if ((m = lower.match(/you may pay (\d+) life/))) { land.etb = 'shock'; land.shockLife = Number(m[1]); }
     else if ((m = lower.match(/you may behold an? ([a-z]+)\. if you don't, (?:this land|it) enters tapped/))) { land.etb = 'behold'; land.etbPerm = m[1]; }
     else if (/unless you control two or fewer other lands/.test(lower)) land.etb = 'fast';
+    // Den of the Bugbear: "If you control two or more other lands, this land enters tapped."
+    else if (/if you control two or more other lands, [^.]*enters tapped/.test(lower)) land.etb = 'fastTwo';
     else if (/unless you control two or more other lands/.test(lower)) land.etb = 'slow';
     else if (/unless you control a basic land/.test(lower)) land.etb = 'basic';
+    // Battle lands (Prairie Stream): "unless you control two or more basic lands".
+    else if ((m = lower.match(/unless you control (two|three) or more basic lands/))) { land.etb = 'basic'; land.etbCount = COUNT_WORDS[m[1]]; }
     else if (/unless you have two or more opponents/.test(lower)) land.etb = 'multiplayer';
     else if (/unless it's your first, second, or third turn/.test(lower)) land.etb = 'earlyTurns';
     else if (/unless a player has (\d+) or less life/.test(lower)) {
@@ -160,6 +339,9 @@ export function parseLand(face, producedFallback) {
       land.etb = 'reveal'; land.etbTypes = typeBits(m[0]);
     } else if ((m = lower.match(/unless you control an? (\w+)(?: or an? (\w+))?/)) && typeBits(m[0])) {
       land.etb = 'check'; land.etbTypes = typeBits(m[0]);
+    } else if ((m = lower.match(/unless you control (two|three|four|five) or more other (plains|islands|swamps|mountains|forests)\b/))) {
+      // Mystic Sanctuary: "unless you control three or more other Islands"
+      land.etb = 'typeCount'; land.etbTypes = typeBits(m[2] === 'plains' ? m[2] : m[2].slice(0, -1)); land.etbCount = COUNT_WORDS[m[1]];
     } else if ((m = lower.match(/unless you control an? (legendary creature|[a-z]+)\b/)) && PERM_TYPES.includes(m[1])) {
       land.etb = 'controlPerm'; land.etbPerm = m[1];
     } else if (/unless/.test(lower)) {
@@ -169,6 +351,19 @@ export function parseLand(face, producedFallback) {
   }
   const surveil = lower.match(/when [^.]*enters[^.]*, surveil (\d+)/);
   if (surveil) land.surveil = Number(surveil[1]);
+  const scry = lower.match(/when [^.]*enters[^.]*, scry (\d+)/);
+  if (scry) land.scry = Number(scry[1]);
+  if (/when [^.]*enters[^.]*, return a land you control to its owner's hand/.test(lower)) land.bounce = true;
+  const sac = lower.match(/when [^.]*enters[^.]*, sacrifice (a|an|one|two|three) (untapped )?lands?/);
+  if (sac) { land.sacrifice = num(sac[1]); land.sacrificeUntapped = !!sac[2]; }
+  if (/when [^.]*enters[^.]*, add one mana of any color/.test(lower)) land.etbMana = ANY_COLOR;
+  if (/when you play another land, sacrifice/.test(lower)) land.leavesOnLand = true;
+  // Vesuva: a copy of another land, which is not modelled. (Echoing Deeps still makes {C}.)
+  if (/enter(?: tapped)? as a copy of (?:any|a) land/.test(lower) && !hasMana && !land.mask) land.notes.push("Copying another land is not modelled, so it makes no mana here");
+  land.grantTypes = grantedTypes(text);
+  // Urborg is a Swamp itself, so it taps for {B} though its text has no mana ability.
+  // Its own types only change on the battlefield (the grant), so a fetch can't find it as a Swamp.
+  if (land.grantTypes) land.mask |= land.grantTypes;
   land.utility = lower.split('\n').some((l) => l.trim() && !isManaLine(l.trim()));
   return land;
 }
@@ -186,6 +381,7 @@ function takeFilter(kinds) {
     else if (/^creatures?$/.test(w)) add('creature');
     else if (/^permanents?$/.test(w)) add('permanent');
     else if (w === 'noncreature') add('noncreature');
+    else if (w === 'colorless') add('colorless');
     else add(`type:${w}`);
   }
   return filter.length ? filter : null;
@@ -219,7 +415,7 @@ export function parseDrawEffect(oracleText, typeLine, notes = []) {
     draw: 0, scry: 0, surveil: 0, look: 0, lookPerLand: false, take: 0, takeFilter: null,
     discard: 0, discardFirst: false, discardOrCreature: false, delayedDiscard: 0, selectFirst: false,
     rummage: 0, // "discard up to N cards, then draw that many"
-    impulse: 0, // "mill/exile the top N cards; you may play them this turn"
+    impulse: 0, // "mill/exile the top N cards; you may play them this turn" (impulseNext: until the end of next turn)
   };
   let modesCount = false;
   for (const raw of stripReminder(oracleText).split('\n')) {
@@ -228,8 +424,9 @@ export function parseDrawEffect(oracleText, typeLine, notes = []) {
     if (/^[•●]/.test(l)) {
       if (!modesCount) continue;
     } else {
-      const colon = l.indexOf(':');
-      modesCount = !(colon > 0 && /\{|\bpay\b|sacrifice|exile|discard/.test(l.slice(0, colon)) && !/^(choose|kicker|flashback|escape|cycling|channel)\b/.test(l))
+      const bare = l.replace(/"[^"]*"/g, '""'); // a token's quoted ability isn't this card's cost
+      const colon = bare.indexOf(':');
+      modesCount = !(colon > 0 && /\{|\bpay\b|sacrifice|exile|discard/.test(bare.slice(0, colon)) && !/^(choose|kicker|flashback|escape|cycling|channel)\b/.test(l))
         && !/^(whenever|at the beginning|at end)/.test(l)
         && (isSpell || /^when [^,]*\benters?\b/.test(l));
       if (!modesCount) continue;
@@ -249,7 +446,8 @@ export function parseDrawEffect(oracleText, typeLine, notes = []) {
     if (draw && sel < draw.index) eff.selectFirst = true;
     if (!draw && (scry || surveil)) eff.selectFirst = true;
 
-    const look = l.match(/look at the top (\w+) cards of your library/);
+    const look = l.match(/look at the top (\w+) cards of your library/)
+      || (/from among them into your hand/.test(l) ? l.match(/reveal the top (\w+) cards of your library/) : null);
     if (look) {
       eff.look = num(look[1]);
       eff.lookPerLand = look[1] === 'x' && /where x is the number of lands you control/.test(l);
@@ -274,9 +472,10 @@ export function parseDrawEffect(oracleText, typeLine, notes = []) {
     if (discard && /then discard \w+ cards? unless you discard an? creature card/.test(l)) eff.discardOrCreature = true;
     const rummage = l.match(/\bdiscard up to (one|two|three|\d+) cards?, then draw that many cards/);
     if (rummage) eff.rummage += num(rummage[1]);
-    const impulse = l.match(/\b(?:mill|exile) the top (card|\w+ cards) of your library\. (?:until end of turn, )?you may play (?:that card|it|those cards|them) this turn/)
+    const impulse = l.match(/\b(?:mill|exile) the top (card|\w+ cards) of your library\. (?:until end of turn, you may play (?:that card|it|those cards|them)|until the end of your next turn, you may play (?:that card|it|those cards|them)|you may play (?:that card|it|those cards|them) this turn)/)
       || l.match(/\bmill (a|one|two|three) cards?\. you may play (?:that card|it|those cards|them) this turn/);
     if (impulse) eff.impulse += impulse[1] === 'card' ? 1 : num(impulse[1].replace(' cards', ''));
+    if (impulse && impulse[0].includes('until the end of your next turn')) eff.impulseNext = true;
     const later = l.match(/at the beginning of your next upkeep, discard (a|an|one|two|three|\d+) cards? at random/);
     if (later) eff.delayedDiscard = (eff.delayedDiscard || 0) + num(later[1]);
   }
@@ -284,7 +483,6 @@ export function parseDrawEffect(oracleText, typeLine, notes = []) {
   return eff;
 }
 
-const ROMAN = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6 };
 
 // Treasure tokens the card makes without conditions: on entering (or resolving),
 // at the beginning of each upkeep, or from Saga chapters (chapter N fires N-1 turns later).
@@ -299,9 +497,73 @@ function parseTreasure(text, isSpell) {
       for (const ch of m[1].split(', ')) {
         for (let k = 0; k < num(m[2]); k++) { if (ROMAN[ch] === 1) t.now++; else t.later.push(ROMAN[ch] - 1); }
       }
-    } else if (isSpell && (m = l.match(/(?:^|\. )create (a|an|one|two|three) treasure tokens?\.?$/))) t.now += num(m[1]);
+    } else if (isSpell && (m = l.match(/(?:^|\. |,? and )create (a|an|one|two|three) treasure tokens?\.?$/))) t.now += num(m[1]);
   }
   return t.now || t.upkeep || t.later.length ? t : null;
+}
+
+// Lands a spell (or its "when this enters" / "when you cast this spell" trigger) puts into
+// play: from your hand (Arboreal Grazer, Spelunking) or from your library (Rampant Growth,
+// Cultivate, Primeval Titan, Sowing Mycospawn). Activated abilities don't count.
+function parseLandEffects(text, isSpell) {
+  let landFromHand = null, ramp = null;
+  for (const raw of text.split('\n')) {
+    const l = raw.trim();
+    const bare = l.replace(/"[^"]*"/g, '""');
+    const colon = bare.indexOf(':');
+    if (colon > 0 && /\{|\bpay\b|sacrifice|exile|discard/.test(bare.slice(0, colon))) continue;
+    if (!(isSpell || /^when(ever)? [^,]*\benters?\b|^when you cast this spell/.test(l))) continue;
+    if (/if an opponent controls more lands than you/.test(l)) continue; // never true when goldfishing
+    if (/^when[^,]*, if [^,]+ was spent to cast/.test(l)) continue; // Vibrance: depends on the mana paid
+    const hand = l.match(/you may put a land card from your hand onto the battlefield( tapped)?/);
+    if (hand) landFromHand = { tapped: !!hand[1] };
+    // Cavalier of Thorns: a land from the top few cards. Treated as a search, which it nearly always finds.
+    const top = l.match(/reveal the top (\w+) cards of your library\. put a land card from among them onto the battlefield( tapped)?/);
+    if (top && num(top[1]) >= 5) ramp = { types: ANY_COLOR, basicOnly: false, anyLand: true, count: 1, toHand: 0, tapped: !!top[2] };
+    const m = l.match(/search your library for (up to (one|two|three|four) |an? )(basic )?([a-z ]*?)(land )?cards?(?:,| and)([^.]*)/);
+    if (!m || (!m[5] && !typeBits(m[4]))) continue;
+    const count = m[2] ? num(m[2]) : 1;
+    const rest = m[6];
+    const types = typeBits(m[4]) || ANY_COLOR;
+    const base = { types, basicOnly: !!m[3], anyLand: !m[3] && !typeBits(m[4]) };
+    if (/put (?:it|them|that card|those cards) onto the battlefield/.test(rest)) {
+      ramp = { ...base, count, toHand: 0, tapped: /onto the battlefield tapped/.test(rest) };
+    } else if (/put one (?:of them )?onto the battlefield( tapped)? and the other into your hand/.test(rest)) {
+      ramp = { ...base, count: 1, toHand: count - 1, tapped: /onto the battlefield tapped/.test(rest) };
+    } else if (/put (?:it|them|that card|those cards) into your hand/.test(rest)) {
+      ramp = { ...base, count: 0, toHand: count, tapped: false };
+    }
+  }
+  // Harrow, Roiling Regrowth, Springbloom Druid: a land is sacrificed for it, so it nets one land fewer.
+  if (ramp && /(?:^|\. |additional cost to cast this spell, )sacrifice a land\b|you may sacrifice a land\. if you do, search your library/m.test(text)) {
+    if (ramp.count > 0) ramp.count--; else if (ramp.toHand > 0) ramp.toHand--;
+    if (!ramp.count && !ramp.toHand) ramp = null;
+  }
+  return { landFromHand, ramp };
+}
+
+// "When this enters, create a tapped colorless land token named Everywhere that is every
+// basic land type" -> a land model for the token.
+function parseLandToken(text) {
+  const m = text.match(/^when(?:ever)? [^,]*\benters?\b[^,]*, create an? (tapped )?[a-z ]*?land token[^.]* every basic land type/m);
+  if (!m) return null;
+  return parseLand({ type_line: 'Land — Plains Island Swamp Mountain Forest', oracle_text: m[1] ? 'This land enters tapped.' : '' });
+}
+
+// Mana a permanent adds once as it enters, with no condition.
+function parseEtbMana(text) {
+  const m = text.match(/^when [^,]*\benters?, add (one mana of any color|(?:\{[wubrgc]\})+)\.?$/m);
+  if (!m) return null;
+  if (m[1] === 'one mana of any color') return [ANY_COLOR];
+  return [...m[1].matchAll(/\{([wubrgc])\}/g)].map((x) => COLOR_BITS[x[1].toUpperCase()]);
+}
+
+// Dark Ritual: an instant or sorcery whose first line adds mana. Culling the Weak's needs a
+// creature to sacrifice, so it is left out.
+function parseRitual(text, typeLine) {
+  if (!/\b(Instant|Sorcery)\b/.test(typeLine) || /as an additional cost to cast this spell, sacrifice/.test(text)) return null;
+  const m = text.match(/^add ((?:\{[wubrgc]\})+)/m);
+  return m ? [...m[1].matchAll(/\{([wubrgc])\}/g)].map((x) => COLOR_BITS[x[1].toUpperCase()]) : null;
 }
 
 function parseSpell(face, card) {
@@ -314,15 +576,39 @@ function parseSpell(face, card) {
     isCreature: /\bCreature\b/.test(typeLine),
     kind: /\bCreature\b/.test(typeLine) ? 'creature' : /\b(Instant|Sorcery)\b/.test(typeLine) ? 'spell' : 'other',
     isPermanent: !/\b(Instant|Sorcery)\b/.test(typeLine),
+    legendary: /\bLegendary\b/.test(typeLine) && !/\b(Instant|Sorcery)\b/.test(typeLine),
+    // Phyrexian pips ({B/P}) are paid with life, so they are left out of the mana spent.
+    phyrexian: ((face.mana_cost ?? card.mana_cost ?? '').split('//')[0].match(/\{[^}]*\/P\}/gi) || []).length,
+    // No colored mana symbol in its cost (or devoid): what "a colorless card" digs find.
+    colorless: !!(face.mana_cost ?? card.mana_cost) && !/\{[^}]*[WUBRG][^}]*\}/.test(face.mana_cost ?? card.mana_cost) || /^devoid\b/m.test(text),
     effect: parseDrawEffect(face.oracle_text, typeLine, notes),
     typeLine,
     costReduction: /this spell costs \{[x\d]+\} less to cast|costs \{[x\d]+\} less to cast for each|^(affinity for|convoke|delve|improvise)\b/m.test(text),
     extraCost: null, // { generic, pips, unlessType: [words], fromHand, sacrifice }
     treasure: parseTreasure(text, /\b(Instant|Sorcery)\b/.test(typeLine)),
-    extraLandDrops: /you may play an additional land on each of your turns/.test(text) ? 1 : 0,
+    extraLandDrops: num((text.match(/you may play (an|one|two|three) additional lands? on each of your turns/) || [])[1]),
+    leyline: /if [^.]+ is in your opening hand, you may begin the game with it on the battlefield/.test(text),
+    grantTypes: grantedTypes(text),
+    landToken: parseLandToken(text), // Overlord of the Hauntwoods' Everywhere
+    etbMana: parseEtbMana(text) || parseRitual(text, typeLine), // [mask...] added when it enters (Outcaster Trailblazer) or resolves (Dark Ritual)
+    // Mox Diamond: "you may discard a land card instead" of it going to the graveyard.
+    discardLand: /if [^.]+ would enter, you may discard a land card instead/.test(text),
+    // Spelunking: lands come into play untapped.
+    untapLands: /lands you control enter untapped/.test(text),
+    landFromHand: null, // { tapped } put a land from hand onto the battlefield (Arboreal Grazer)
+    ramp: null, // { count, toHand, types, basicOnly, anyLand, tapped } lands from the library
+    // Domain: "costs {1} less to cast for each basic land type among lands you control".
+    domain: Number((text.match(/costs \{(\d+)\} less to cast for each basic land type among lands you control/) || [])[1] || 0),
+    // Cards with no mana cost (Living End, suspend-only cards) can't be cast from hand.
+    noCost: !(face.mana_cost ?? card.mana_cost),
     mana: null,
     notes,
   };
+  if (spell.noCost) notes.push("Has no mana cost, so the simulator never casts it");
+  if (/whenever a permanent you control enters tapped, untap it/.test(text)) notes.push('Its untap of permanents that enter tapped is not modelled');
+  const { landFromHand, ramp } = parseLandEffects(text, /\b(Instant|Sorcery)\b/.test(typeLine));
+  spell.landFromHand = landFromHand;
+  spell.ramp = ramp;
   // "Behold a Dragon or pay {2}", "sacrifice an artifact or creature or pay {4}": the
   // extra mana is due unless you have that card in hand (behold) or in play.
   const unless = text.match(/as an additional cost to cast this spell, (behold|sacrifice) an? ([a-z]+(?: or [a-z]+)?) or pay \{(\d+)\}/);
@@ -340,12 +626,45 @@ function parseSpell(face, card) {
   if (spell.extraLandDrops && /you may play lands from your graveyard/.test(text)) notes.push('The extra land drop is modelled; playing lands from the graveyard is not');
   // The turn we check "on curve": its mana value, plus any extra mana it asks for.
   spell.curveTurn = spell.cmc + (spell.extraCost ? spell.extraCost.generic + spell.extraCost.pips.length : 0);
+  if (spell.etbMana && !spell.isPermanent) notes.push('Its mana is added when it resolves and lasts until the end of the turn');
   if (spell.isPermanent) {
-    const mana = parseManaAbilities(face.oracle_text || '');
+    const mana = parseManaAbilities(face.oracle_text || '', { selfName: face.name || card.name });
+    if (mana.ownColors) {
+      // Bloom Tender, Faeburrow Elder: one mana of each of its own colors.
+      const own = colorsToMask(card.color_identity || []);
+      const bits = Object.values(COLOR_BITS).filter((b) => own & b);
+      if (bits.length) { mana.mask |= bits[0]; mana.extra = bits.slice(1); }
+    }
+    mana.mask |= mana.filtered || 0; // Signets
+    if (mana.chosenColor) mana.mask |= ANY_COLOR; // Coldsteel Heart: "one mana of the chosen color"
     if (mana.mask || mana.cond.length || mana.restricted.length) {
-      spell.mana = { ...mana, sick: spell.isCreature && !/\bhaste\b/.test(text) };
+      // Rocks that enter tapped (Coldsteel Heart) wait a turn, like creatures.
+      spell.mana = { ...mana, sick: spell.isCreature && !/\bhaste\b/.test(text) || /^[^.]*\benters tapped\.$/m.test(text) };
+      // Mana Vault, Grim Monolith: they make their mana once.
+      if (/doesn't untap during your untap step/.test(text)) {
+        spell.mana.noUntap = true;
+        mana.notes.push("Doesn't untap, so its mana is counted once");
+      }
+      if (mana.oneShot) mana.notes.push('Sacrificed for its mana, so it is used once, like a Treasure');
+    }
+    // Fertile Ground, Wild Growth, Utopia Sprawl: the enchanted land makes one more mana, which
+    // is counted like a mana creature (usable from the turn after it is cast).
+    const aura = !spell.mana && text.match(/^whenever enchanted [a-z]+ is tapped for mana, its (?:controller|player) adds an additional ([^.]+)\./m);
+    if (aura) {
+      const more = parseManaAbilities(`{T}: Add ${aura[1].toUpperCase()}.`); // Wild Growth: {G}
+      if (more.chosenColor) more.mask |= ANY_COLOR;
+      if (more.mask) {
+        spell.mana = { ...more, sick: true };
+        more.notes.push('Counted as a mana source from the turn after it is cast: its land makes one more mana');
+      }
     }
   }
+  // Crypt Ghast, Bubbling Muck, Badgermole Cub, Kinnan, Nyxbloom Ancient, Barbflare Gremlin:
+  // extra mana when permanents are tapped for mana.
+  if (/whenever (?:you tap|a player taps) an? [a-z ]+ for mana, (?:if [^,]+, )?(?:that player )?adds? (?:an additional|one mana)|if you tap a permanent for mana, it produces (?:twice|three times) as much/.test(text)) notes.push('The extra mana it adds when you tap a permanent for mana is not counted');
+  // Medallions: "Black spells you cast cost {1} less to cast."
+  if (/^(?:[a-z]+ )*spells you cast cost \{\d+\} less to cast/m.test(text)) notes.push('Making your other spells cheaper is not modelled');
+  if (spell.discardLand) notes.push('Cast only with a land card in hand to discard for it');
   return spell;
 }
 
@@ -356,7 +675,7 @@ export function describeEffect(eff) {
   if (eff.surveil && eff.selectFirst) parts.push(`surveil ${eff.surveil}`);
   if (eff.look || eff.lookPerLand) parts.push(`look at ${eff.lookPerLand ? 'one card per land' : eff.look}, take ${eff.take}${eff.takeFilter ? ' ' + eff.takeFilter.map((f) => f.replace('type:', '')).join('/') : ''}`);
   if (eff.rummage) parts.push(`discard up to ${eff.rummage}, draw that many`);
-  if (eff.impulse) parts.push(`play the top ${eff.impulse === 1 ? 'card' : eff.impulse + ' cards'} this turn`);
+  if (eff.impulse) parts.push(`play the top ${eff.impulse === 1 ? 'card' : eff.impulse + ' cards'} ${eff.impulseNext ? 'until the end of next turn' : 'this turn'}`);
   if (eff.draw) parts.push(`draw ${eff.draw}`);
   if (eff.discard && eff.discardFirst) parts.unshift(`discard ${eff.discard}`);
   else if (eff.discard) parts.push(`discard ${eff.discard}${eff.discardOrCreature ? ' (or one creature)' : ''}`);
@@ -402,11 +721,18 @@ export function normalizeCard(sc, count = 1) {
     if (def.spell.mana) {
       def.producesManaNonLand = true;
       def.notes.push(...def.spell.mana.notes);
-    } else if (/\{t\}[^:]*: add\b/i.test(stripReminder(front.oracle_text || ''))) {
+    } else if (/^(?!\[?[+−–-]?\d+\]?: )[^"\n]*: add\b/im.test(stripReminder(front.oracle_text || ''))) {
+      // Altars ("Sacrifice a creature: Add {C}{C}") and abilities that cost mana; not loyalty abilities.
       def.notes.push('Its mana ability needs another resource, so the simulator does not use it as a mana source');
     }
-    if (def.spell.costReduction) def.notes.push('Cost reduction is not modelled, so it is left out of the on-curve average');
+    // Abundant Growth, Chromatic Lantern, Esika: "Enchanted land has '{T}: Add one mana of any color.'"
+    if (/\b(?:has|have) [^"'\n]*["']\{t\}[^"']*: add\b/i.test(stripReminder(front.oracle_text || ''))) {
+      def.notes.push('The mana ability it gives other permanents is not modelled');
+    }
+    if (def.spell.domain) def.notes.push('Domain makes it cheaper for each basic land type you control. The simulator applies that, but leaves it out of the on-curve average because its curve turn depends on your lands');
+    else if (def.spell.costReduction) def.notes.push('Cost reduction is not modelled, so it is left out of the on-curve average');
   }
+  def.notes = [...new Set(def.notes)];
   return def;
 }
 
@@ -414,7 +740,11 @@ export function basicLandDef(color, count = 0) {
   const name = BASIC_BY_COLOR[color];
   return {
     name, frontName: name, count,
-    land: { mask: COLOR_BITS[color], cond: [], restricted: [], choices: null, choiceSetsType: false, etb: 'untapped', etbTypes: 0, etbPerm: null, types: COLOR_BITS[color], isBasic: true, fetch: null, surveil: 0, shockLife: 0, notes: [] },
+    land: {
+      mask: COLOR_BITS[color], cond: [], restricted: [], choices: null, choiceSetsType: false, etb: 'untapped', etbTypes: 0, etbPerm: null,
+      types: COLOR_BITS[color], isBasic: true, fetch: null, extra: [],
+      surveil: 0, scry: 0, bounce: false, sacrifice: 0, shockLife: 0, utility: false, isArtifact: false, notes: [],
+    },
     spell: null, mdfcLand: null, colorIdentity: [color], legalities: {}, producesManaNonLand: false, notes: [], basicColor: color,
   };
 }
@@ -430,6 +760,7 @@ export function landColors(L, { restricted = false } = {}) {
   for (const c of L.cond) m |= c.mask;
   for (const r of L.restricted) if (restricted || r.kind === null) m |= r.mask;
   for (const ch of L.choices || []) m |= ch;
+  for (const e of L.extra || []) m |= e; // Simic Growth Chamber's {U}
   if (L.fetch) m |= L.fetch.types;
   return m;
 }
@@ -437,23 +768,37 @@ export function landColors(L, { restricted = false } = {}) {
 export function landSummary(land) {
   if (!land) return '';
   const etb = {
-    untapped: 'untapped', shock: 'untapped (pay 2 life)', tapped: 'tapped', fast: 'untapped as one of your first three lands',
-    slow: 'untapped from your third land', basic: 'untapped with a basic', check: 'untapped with the right land type',
+    untapped: 'untapped', shock: 'untapped (pay 2 life)', tapped: 'tapped', fast: 'untapped as one of your first three lands', fastTwo: 'untapped as one of your first two lands',
+    slow: 'untapped from your third land', basic: land.etbCount > 1 ? `untapped with ${['', 'one', 'two', 'three'][land.etbCount]} basics` : 'untapped with a basic', check: 'untapped with the right land type',
     reveal: 'untapped if you reveal the right land type', multiplayer: 'tapped in 1v1', unknown: 'tapped (unknown condition)',
-    earlyTurns: 'untapped on turns 1-3', lowLife: 'tapped until turn 5', controlPerm: `untapped with ${land.etbPerm ? 'an ' + land.etbPerm : 'the right permanent'}`,
+    earlyTurns: 'untapped on turns 1-3', lowLife: 'tapped until turn 5',
+    typeCount: `untapped with ${['', 'one', 'two', 'three', 'four', 'five'][land.etbCount]} other ${Object.keys(TYPE_BITS).filter((t) => land.etbTypes & TYPE_BITS[t]).map((t) => t[0].toUpperCase() + t.slice(1) + (t === 'plains' ? '' : 's')).join(' or ')}`, controlPerm: `untapped with ${land.etbPerm ? 'an ' + land.etbPerm : 'the right permanent'}`,
     behold: `untapped if you have ${land.etbPerm && /^[aeiou]/.test(land.etbPerm) ? 'an' : 'a'} ${land.etbPerm ? land.etbPerm[0].toUpperCase() + land.etbPerm.slice(1) : ''} in hand or in play`,
   }[land.etb];
   const extras = [];
   if (land.etb === 'shock' && land.shockLife !== 2) extras.push(`pay ${land.shockLife} life`);
-  if (land.restricted.some((r) => r.life)) extras.push('colored mana costs life');
+  if (land.tapLife) extras.push(`each tap costs ${land.tapLife} life`);
+  else if (land.restricted.some((r) => r.life)) extras.push('colored mana costs life');
   if (land.restricted.some((r) => r.kind === 'creature')) extras.push('colors only for creatures');
   if (land.restricted.some((r) => r.kind === 'spell')) extras.push('colors only for instants/sorceries');
-  if (land.cond.length) extras.push('second color needs the right land in play');
+  const perm = land.cond.find((c) => c.perm);
+  if (perm) extras.push(`makes mana once you control ${/^[aeiou]/.test(perm.perm[0]) ? 'an' : 'a'} ${perm.perm[0]}`);
+  const fed = land.cond.find((c) => c.source);
+  if (fed) extras.push(fed.source & COLOR_BITS.C ? 'needs mana from another source' : 'colors need another source of them');
+  if (land.cond.some((c) => !c.perm && !c.source)) extras.push('second color needs the right land in play');
   if (land.fetch) {
     const f = land.fetch;
-    const untap = f.untapAt ? ' (untaps with 4+ lands)' : f.untapIfBehold ? ` (untaps if you behold ${/^[aeiou]/.test(f.untapIfBehold) ? 'an' : 'a'} ${f.untapIfBehold[0].toUpperCase() + f.untapIfBehold.slice(1)})` : ', tapped';
-    return `fetches a basic${untap}${f.life ? `, pay ${f.life} life` : ''}`;
+    const untap = !f.tapped ? '' : f.untapAt ? ' (untaps with 4+ lands)' : f.untapIfBehold ? ` (untaps if you behold ${/^[aeiou]/.test(f.untapIfBehold) ? 'an' : 'a'} ${f.untapIfBehold[0].toUpperCase() + f.untapIfBehold.slice(1)})` : ', tapped';
+    const what = f.types === ANY_COLOR ? 'a basic' : `${f.basicOnly ? 'a basic ' : 'a '}${Object.keys(TYPE_BITS).filter((t) => f.types & TYPE_BITS[t]).map((t) => t[0].toUpperCase() + t.slice(1)).join(' or ')}`;
+    return `fetches ${what}${untap}${f.life ? `, pay ${f.life} life` : ''}`;
   }
   if (land.surveil) extras.unshift(`surveil ${land.surveil}`);
+  if (land.scry) extras.unshift(`scry ${land.scry}`);
+  const mana = 1 + (land.extra || []).length;
+  if (land.minLands) extras.push(`makes ${mana > 1 ? mana + ' mana' : 'mana'} once you control ${land.minLands} lands`);
+  else if (mana > 1) extras.push(`makes ${mana} mana`);
+  if (land.leavesOnLand) extras.push('sacrificed when you play another land');
+  if (land.bounce) extras.push('returns a land to your hand');
+  if (land.sacrifice) extras.push(`sacrifice ${land.sacrifice} ${land.sacrificeUntapped ? 'untapped ' : ''}land${land.sacrifice > 1 ? 's' : ''}`);
   return [etb.replace('(pay 2 life)', land.shockLife === 2 ? '(pay 2 life)' : '(pay life)'), ...extras].join(', ');
 }

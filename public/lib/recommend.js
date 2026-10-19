@@ -11,7 +11,7 @@ export function deckStats(cards) {
     if (!d.spell || d.filler) continue;
     spells += d.count;
     cmcSum += d.count * d.spell.cmc;
-    if (d.spell.cmc <= 2 && (d.spell.effect || d.producesManaNonLand)) cheap += d.count;
+    if (d.spell.cmc <= 2 && (d.spell.effect || d.producesManaNonLand || d.spell.ramp?.count > 0)) cheap += d.count;
     if (d.mdfcLand) mdfc += d.count;
     if (d.producesManaNonLand) nonLandMana += d.count;
   }
@@ -47,6 +47,9 @@ export function sourceProbability(deckSize, lands, sources, seen, need, landsNee
 export function sourcesNeeded(format, landCount, cards, target = 0.9) {
   const need = { W: 0, U: 0, B: 0, R: 0, G: 0 };
   const why = {};
+  // The library is what's left after the commander; partners leave 98 cards.
+  const commanders = cards.reduce((a, d) => a + (d.count && d.commander ? d.commander : 0), 0);
+  const library = (format.librarySize ?? format.deckSize) - Math.max(0, commanders - 1);
   for (const d of cards) {
     if (!d.count || !d.spell || d.filler) continue;
     const turn = Math.min(7, Math.max(1, Math.round(d.spell.cmc)));
@@ -55,18 +58,27 @@ export function sourcesNeeded(format, landCount, cards, target = 0.9) {
       if (!k) continue;
       const seen = format.handSize + turn - 1;
       let s = k;
-      while (s < landCount && sourceProbability(format.deckSize, landCount, s, seen, k, turn) < target) s++;
+      while (s < landCount && sourceProbability(library, landCount, s, seen, k, turn) < target) s++;
       if (s > need[c]) { need[c] = s; why[c] = `${d.name}: ${('{' + c + '}').repeat(k)} on turn ${turn}`; }
     }
   }
   return { need, why };
 }
 
+// Lands that make each color. A fetch counts for the colors of the lands in the deck it
+// can find, the way Karsten counts them.
 export function countSources(cards) {
   const have = { W: 0, U: 0, B: 0, R: 0, G: 0 };
   for (const d of cards) {
     if (!d.count || !d.land) continue;
-    const m = landColors(d.land);
+    let m = landColors(d.land);
+    const f = d.land.fetch;
+    if (f) {
+      m &= ~f.types;
+      for (const t of cards) {
+        if (t.count && t.land && !t.land.fetch && (t.land.types & f.types) && (!f.basicOnly || t.land.isBasic)) m |= landColors(t.land);
+      }
+    }
     for (const c of COLOR_ORDER) if (m & COLOR_BITS[c]) have[c] += d.count;
   }
   return have;

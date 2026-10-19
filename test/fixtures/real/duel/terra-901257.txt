@@ -1,0 +1,102 @@
+1 Abrupt Decay
+1 Animate Dead
+1 Archon of Cruelty
+1 Arid Mesa
+1 Ashen Rider
+1 Primeval Titan
+1 Atraxa, Grand Unifier
+1 Badlands
+1 Bitter Reunion
+1 Bitter Triumph
+1 Bloodstained Mire
+1 Brotherhood's End
+1 Chaos Defiler
+1 City of Brass
+1 Collective Brutality
+1 Command Tower
+1 Commercial District
+1 Corpse Dance
+1 Dance of the Dead
+1 Demonic Tutor
+1 Dihada, Binder of Wills
+1 Dina's Guidance
+1 Disciple of Freyalise
+1 Dismember
+1 Enlightened Tutor
+1 Etali, Primal Conqueror
+1 Exhume
+1 Faithless Looting
+1 Flash
+1 Flicker of Fate
+1 Flooded Strand
+1 Forest
+1 Fury
+1 Godless Shrine
+1 Grief
+1 Harvester of Misery
+1 Hunting Grounds
+1 Incarnation Technique
+1 Inquisition of Kozilek
+1 Kroxa and Kunoros
+1 Leyline Binding
+1 Lightning Bolt
+1 Malevolent Rumble
+1 Mana Confluence
+1 Marsh Flats
+1 Metamorphosis Fanatic
+1 Misty Rainforest
+1 Mountain
+1 Necromancy
+1 Oliphaunt
+1 Overgrown Tomb
+1 Overlord of the Balemurk
+1 Overlord of the Boilerbilges
+1 Overlord of the Mistmoors
+1 Path of Ancestry
+1 Phelia, Exuberant Shepherd
+1 Plains
+1 Plateau
+1 Polluted Delta
+1 Priest of Fell Rites
+1 Psychic Frog
+1 Raph & Mikey, Troublemakers
+1 Raucous Theater
+1 Recurring Nightmare
+1 Reflecting Pool
+1 Scalding Tarn
+1 Seam Rip
+1 Shadowy Backstreet
+1 Shallow Grave
+1 Show and Tell
+1 Sin, Spira's Punishment
+1 Sneak Attack
+1 Starting Town
+1 Static Prison
+1 Summon: Bahamut
+1 Summon: Yojimbo
+1 Swamp
+1 Swords to Plowshares
+1 Taiga
+1 Tainted Pact
+1 Temple Garden
+1 Thoughtseize
+1 Tomb Fortress
+1 Torsten, Founder of Benalia
+1 Traumatic Critique
+1 Tropical Island
+1 Tundra
+1 Undercity Sewers
+1 Ureni, the Song Unending
+1 Utopia Sprawl
+1 Valgavoth, Terror Eater
+1 Vaultborn Tyrant
+1 Verdant Catacombs
+1 Volcanic Island
+1 Watery Grave
+1 Wild Growth
+1 Windswept Heath
+1 Wooded Foothills
+1 Worldly Tutor
+
+Sideboard
+1 Terra, Magical Adept

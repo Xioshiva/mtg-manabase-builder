@@ -1,8 +1,9 @@
 // Tiny static file server: `node server.js`, then open http://localhost:5173
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { staticFile } from './static-file.js';
 import { importDeckLink, recognizeDeckLink } from './public/lib/importers.js';
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), 'public');
@@ -24,9 +25,8 @@ createServer(async (req, res) => {
     }
     return;
   }
-  const path = normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, '');
-  const file = join(root, path === '/' ? 'index.html' : path);
-  if (!file.startsWith(root)) { res.writeHead(403).end(); return; }
+  const file = staticFile(root, url.pathname);
+  if (!file) { res.writeHead(403).end(); return; }
   try {
     const body = await readFile(file);
     res.writeHead(200, { 'Content-Type': types[extname(file)] || 'application/octet-stream' });
