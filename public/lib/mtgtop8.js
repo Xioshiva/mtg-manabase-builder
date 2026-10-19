@@ -1,7 +1,11 @@
 // MTGTop8 import. Like Moxfield, MTGTop8 doesn't let other sites fetch from the
 // browser, so the local server fetches the deck's MTGO text export.
+import { parseDecklist, formatDecklist } from './decklist.js';
+import { FORMATS } from './formats.js';
+
 const SITE = 'https://www.mtgtop8.com';
-const FORMAT_CODES = { ST: 'standard', PI: 'pioneer', MO: 'modern', EDH: 'commander' };
+// MTGTop8's "EDH" is Duel Commander; multiplayer Commander is "cEDH".
+const FORMAT_CODES = { ST: 'standard', PI: 'pioneer', MO: 'modern', EDH: 'duel', CEDH: 'commander' };
 
 // Accepts a deck URL (https://www.mtgtop8.com/event?e=92141&d=899834&f=ST),
 // an export URL (https://www.mtgtop8.com/mtgo?d=899834) or "mtgtop8:899834".
@@ -25,5 +29,10 @@ export async function fetchMtgtop8Deck(ref, { fetchImpl = globalThis.fetch } = {
   if (!res.ok) throw new Error(`MTGTop8 returned ${res.status}`);
   const text = (await res.text()).replace(/\r\n/g, '\n').trim();
   if (!/^\d+\s+\S/m.test(text)) throw new Error('MTGTop8 sent back something that is not a decklist (check the link)');
+  // The export lists a Commander deck's commander as its sideboard.
+  const deck = parseDecklist(text);
+  if (FORMATS[ref.format]?.commander && !deck.commander.length && deck.sideboard.length && deck.sideboard.length <= 2) {
+    return { name: `MTGTop8 deck ${ref.id}`, format: ref.format, text: formatDecklist({ ...deck, commander: deck.sideboard, sideboard: [] }) };
+  }
   return { name: `MTGTop8 deck ${ref.id}`, format: ref.format, text: text + '\n' };
 }
