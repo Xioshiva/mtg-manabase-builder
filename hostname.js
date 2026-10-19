@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
 // The "manabuilder" name for this computer: one line in the hosts file points it at
-// 127.0.0.1, so the app opens at http://manabuilder. `npm run add-name` writes the line.
+// 127.0.0.1, so the app opens at http://manabuilder. `node scripts/hostname.js add` writes it.
 export const NAME = 'manabuilder';
 const MARK = '# added by mtg-manabase-builder';
 

@@ -1,5 +1,5 @@
 // Tiny static file server: `node server.js`, then open http://localhost:5173
-// (or http://manabuilder once `npm run add-name` has set the name up).
+// (or http://manabuilder once `node scripts/hostname.js add` has set the name up).
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
@@ -45,7 +45,8 @@ if (await nameIsSetUp()) {
   if (process.env.PORT) console.log(`Also at http://${NAME}${port === 80 ? '' : `:${port}`}`);
   else {
     createServer(app)
-      .on('error', (err) => console.log(`Port 80 is ${err.code === 'EADDRINUSE' ? 'used by another program' : 'not open to this account'}, so open http://${NAME}:${port} instead`))
+      // On Windows any program may use port 80, so a refusal there means IIS or another server has it.
+      .on('error', (err) => console.log(`Port 80 is ${err.code === 'EADDRINUSE' || process.platform === 'win32' ? 'used by another program' : 'not open to this account'}, so open http://${NAME}:${port} instead`))
       .listen(80, () => console.log(`Also at http://${NAME}`));
   }
 }

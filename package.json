@@ -6,8 +6,6 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "add-name": "node scripts/hostname.js add",
-    "remove-name": "node scripts/hostname.js remove",
     "test": "node --test test/*.test.js"
   },
   "engines": { "node": ">=18" }
