@@ -68,6 +68,24 @@ test('a surveil land goes down on a turn its mana is not needed; a shockland is 
   assert.ok(wildsCurve > 0.85, `${wildsCurve}`);
 });
 
+test('on a turn its mana is not needed, a shockland goes down tapped before a land that would enter untapped later', () => {
+  const spells = [spell('TwoU', '{1}{U}', 2, 18), spell('ThreeW', '{2}{W}', 3, 18)];
+  const other = (name, text, type = 'Land') => land(name, `${text}\n{T}: Add {W} or {U}.`, type, 12);
+  // Fountain tapped on turn 1, then Seachrome Coast or Glacial Fortress untapped for free on
+  // turn 2, rather than the other way round and 2 life for the Fountain.
+  const fast = sim([fountain(12), other('Seachrome Coast', 'This land enters tapped unless you control two or fewer other lands.'), ...spells]);
+  assert.ok(fast.lifePaidPerGame < 1, `${fast.lifePaidPerGame}`);
+  const check = sim([fountain(12), other('Glacial Fortress', 'This land enters tapped unless you control a Plains or an Island.'), ...spells]);
+  assert.ok(check.lifePaidPerGame < 1.9, `${check.lifePaidPerGame}`);
+  // A land that always enters tapped goes first, leaving the Fountain to enter untapped.
+  const gate = sim([fountain(12), other('Azorius Guildgate', 'This land enters tapped.', 'Land — Gate'), ...spells]);
+  assert.ok(gate.castOnCurve > 0.72, `${gate.castOnCurve}`);
+  // A fetch still finds the Fountain tapped on such a turn rather than a basic.
+  const pips = sim([strand(8), fountain(6), basicLandDef('W', 5), basicLandDef('U', 5), spell('Three', '{1}{W}{U}', 3, 8),
+    spell('WWW', '{W}{W}{W}', 3, 6), spell('UUU', '{U}{U}{U}', 3, 6), spell('FourW', '{2}{W}{W}', 4, 8), spell('FourU', '{2}{U}{U}', 4, 8)]);
+  assert.ok(pips.castOnCurve > 0.63, `${pips.castOnCurve}`);
+});
+
 test("Urza's lands count as one {C} each, with a note that the Tron bonus isn't modelled", () => {
   const tower = urza('Tower', 'Mine', 'Power-Plant', 4, 3);
   assert.equal(tower.land.mask, C.C);

@@ -84,7 +84,7 @@ Each turn the bot follows these steps:
 
 1. Draw a card.
 2. If there's no land in hand, cast cheap draw spells first to look for one.
-3. Play the land that lets it cast the most this turn. When a tapped land costs nothing (turn 1, or a turn with nothing more to cast), it plays one, a surveil or scry land first, and holds shocklands for turns that need untapped mana. It pays life for a shockland only when that matters.
+3. Play the land that lets it cast the most this turn. When a tapped land costs nothing (it would cast the same biggest spell either way, as on turn 1), it plays one: a surveil or scry land first, then one that always enters tapped, ahead of shocklands and fetches that can make untapped mana on a later turn. It pays life for a shockland only when that matters.
 4. Cast the most expensive spells it can afford, then spend leftover mana on draw spells. Mana creatures and mana rocks are cast early when they help; rocks can tap for mana right away and creatures from the next turn. Treasure tokens (from cards that make them on entering, each upkeep, or from Saga chapters) are spent only when nothing else can pay. Permanents that grant an extra land drop let the bot play another land.
 
 Scry, surveil and "look at the top N" effects decide between a land and a spell on top. The bot keeps a land while it is short: fewer lands in play and in hand than the next two land drops need, up to the mana value of the deck's most expensive spell (3 to 6). Otherwise it keeps spells and sends lands away.
@@ -93,7 +93,7 @@ The simulator understands these lands: basics (snow basics and Wastes too), fast
 
 For Pioneer and Modern it also understands:
 
-- **Fetchlands** (Polluted Delta, Prismatic Vista, Evolving Wilds, Fabled Passage). The bot fetches the land it needs most, pays the life, and only counts a fetch as a source of a color when the deck has a land of that color it can find. On a turn that doesn't need the mana, it fetches a land that enters tapped (a surveil land first) and leaves the untapped ones for later. It never fetches a land it holds a copy of: it plays that copy and keeps the fetch.
+- **Fetchlands** (Polluted Delta, Prismatic Vista, Evolving Wilds, Fabled Passage). The bot fetches the land it needs most, pays the life, and only counts a fetch as a source of a color when the deck has a land of that color it can find. On a turn that doesn't need the mana, a fetch like Polluted Delta finds a land that enters tapped (a surveil land first), or waits in hand while another land can go down tapped. Such a fetch never finds a land the bot holds a copy of: it plays that copy and keeps the fetch. Evolving Wilds and Fabled Passage put their land in tapped anyway, so they go down first and can find one.
 - **Lands that make more than one mana**: bounce lands like Simic Growth Chamber (they return a land to your hand), Lotus Field (it sacrifices two lands, so the bot waits until it has two others), and Urza's Saga (it makes mana until its last chapter, is tapped once more and then leaves). A land that is about to be returned or sacrificed is tapped for mana first.
 - **Lands and permanents that change other lands**: Urborg, Tomb of Yawgmoth and Leyline of the Guildpact give your lands more colors, and Spelunking makes lands enter untapped.
 - **Leylines**: every Leyline in your opening hand starts the game on the battlefield.
