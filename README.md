@@ -20,6 +20,18 @@ node server.js          # then open http://localhost:5173
 
 Your browser fetches card data from Scryfall and caches it locally.
 
+### Open it at http://manabuilder
+
+To open the app by name instead of localhost:5173, set the name up once:
+
+```
+node scripts/hostname.js add
+```
+
+This adds the line `127.0.0.1 manabuilder` to your computer's hosts file, which needs administrator rights. On Windows, right-click Terminal (or Command Prompt) in the Start menu, choose "Run as administrator", go to the app's folder and run the command there. On macOS or Linux, run `sudo "$(command -v node)" scripts/hostname.js add`.
+
+After that, `node server.js` also answers on the standard web port (80), so http://manabuilder opens the app on this computer (restart the server if it was running). Type it with `http://` the first time, because a single word in the address bar searches the web. If another program uses port 80, or the port needs root as it does on Linux, the server says so and the app is at http://manabuilder:5173. Saved decks are kept per address, so decks saved at localhost:5173 don't show up at http://manabuilder. `node scripts/hostname.js remove` takes the name out again.
+
 To load a deck, paste the list (Arena or MTGO export) in the Text tab, or paste a link to a public Moxfield deck or an MTGTop8 deck and click Import. Neither site lets web pages fetch decks directly, so the local server fetches the deck for the page. That's why you open the app through `node server.js` instead of opening the HTML file. If a site refuses the request, export the list from it and paste it instead.
 
 ### Editing and saving a deck
@@ -167,5 +179,6 @@ public/sim-worker.js     one simulation thread for the web page
 cli.js, server.js        command line tool and static server
 node-pool.js             simulation threads for the command line
 static-file.js           maps page addresses to files for server.js
-scripts/                 real-deck report and card reading checker
+hostname.js              the manabuilder name in the hosts file (scripts/hostname.js adds it)
+scripts/                 real-deck report, card reading checker, manabuilder name setup
 ```
