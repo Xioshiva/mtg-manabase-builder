@@ -85,3 +85,10 @@ test('strict keep rule sends back five-land seven-card hands', () => {
   const strict = simulate(deck(...cards), { games: 4000, seed: 3, keepRule: 'strict' });
   assert.ok(strict.mulliganRate > loose.mulliganRate + 0.1, `${strict.mulliganRate} vs ${loose.mulliganRate}`);
 });
+
+test('floodCheck counts lands in play and in hand at the end of the chosen turn', () => {
+  const allLands = simulate(deck(basicLandDef('G', 60)), { games: 500, floodCheck: { turn: 6, lands: 6 } });
+  assert.equal(allLands.floodCheckRate, 1);
+  const noCheck = simulate(deck(basicLandDef('G', 60)), { games: 500 });
+  assert.equal(noCheck.floodCheckRate, 0);
+});

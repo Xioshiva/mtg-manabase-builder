@@ -59,7 +59,7 @@ function setup(model, opts) {
   return { turns, games, defs, tracked, curveTurn, wantLands, floodAt: wantLands + 4 };
 }
 
-const SCALAR_STATS = ['mulligans', 'cardsKept', 'drawSpellsCast', 'extraCards', 'flood', 'mdfcAsLand', 'life', 'spentSq'];
+const SCALAR_STATS = ['mulligans', 'cardsKept', 'drawSpellsCast', 'extraCards', 'flood', 'floodCheck', 'mdfcAsLand', 'life', 'spentSq'];
 const TURN_STATS = ['hitDrop', 'lands', 'spent'];
 const CARD_STATS = ['inHand', 'onCurve', 'enough', 'onCurveGivenEnough'];
 
@@ -100,6 +100,7 @@ export function simulateChunks(model, opts, from, to) {
   // 2-4 lands (cheap dorks and rocks count as half a land toward the minimum), and the hand
   // must be able to cast a spell by turn 2 with its own lands; 5 cards keep 1-4 lands.
   const keepRule = opts.keepRule ?? null;
+  const fc = opts.floodCheck ?? null;
   const dorkish = defs.map((d, i) => !landish[i] && rock(d));
   // Colors a land in hand could make, given the other lands in hand.
   const landColors = (L, others) => {
@@ -870,6 +871,9 @@ export function simulateChunks(model, opts, from, to) {
       if (perms.some((x) => x.fleeting)) perms = perms.filter((x) => !x.fleeting); // mana empties at end of turn
       spentTotal += spent;
       st.spent[turn] += spentTotal;
+      // opts.floodCheck = { turn, lands }: a second flood measure, lands in play + in hand
+      // at the end of that turn (mana creatures and rocks don't count).
+      if (fc && turn === fc.turn && bf.length + landsInHand() >= fc.lands) st.floodCheck++;
     }
     if (bf.length + landsInHand() >= floodAt) st.flood++;
     st.spentSq += spentTotal * spentTotal;
@@ -975,6 +979,7 @@ function summarize(st, defs, tracked, extra) {
     drawSpellsPerGame: st.drawSpellsCast / g,
     extraCardsPerGame: st.extraCards / g,
     floodRate: flood,
+    floodCheckRate: st.floodCheck / g,
     floodRateMoe: moe(flood, g),
     mdfcAsLandPerGame: st.mdfcAsLand / g,
     lifePaidPerGame: st.life / g,
