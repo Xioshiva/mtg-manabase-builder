@@ -92,3 +92,28 @@ test('floodCheck counts lands in play and in hand at the end of the chosen turn'
   const noCheck = simulate(deck(basicLandDef('G', 60)), { games: 500 });
   assert.equal(noCheck.floodCheckRate, 0);
 });
+
+test('manaSinks spends spare mana on X counters, Offspring, flashback, Mutagens and tutored one-drops', () => {
+  // Every deck: one kind of mana sink, cards nothing can cast by turn 7, and lands. Mana
+  // spent by turn 5 goes up only when the sinks are modeled.
+  const big = (n) => spell('Big', '{9}', 9, n);
+  const gain = (...cards) => {
+    const plain = simulate(deck(...cards), { games: 3000, seed: 7 });
+    const sunk = simulate(deck(...cards), { games: 3000, seed: 7, manaSinks: true });
+    return sunk.turns[4].manaSpent - plain.turns[4].manaSpent;
+  };
+  const hydra = spell('Hydra', '{X}{W}', 1, 8, { text: 'This creature enters with X +1/+1 counters on it.' });
+  assert.ok(gain(hydra, big(28), basicLandDef('W', 24)) > 1);
+  const rabbit = spell('Rabbit', '{G}', 1, 8, { text: 'Offspring {2}\nTrample' });
+  assert.ok(gain(rabbit, big(28), basicLandDef('G', 24)) > 0.5);
+  const offense = spell('Offense', '{2}{W}', 3, 8, { type: 'Sorcery', text: 'Put a +1/+1 counter on each creature target player controls.\nFlashback {1}{W}' });
+  assert.ok(gain(offense, big(28), basicLandDef('W', 24)) > 0.5);
+  const turtle = spell('Turtle', '{1}{G}', 2, 8, { text: 'When this creature enters, create a Mutagen token.' });
+  assert.ok(gain(turtle, big(28), basicLandDef('G', 24)) > 0.3);
+  const hulk = spell('Hulk', '{1}{G}', 2, 8, { type: 'Artifact Creature — Construct', text: 'When this creature enters, you may search your library for up to two artifact, creature, and/or enchantment cards with mana value 1 or less, reveal them, put them into your hand, then shuffle.' });
+  assert.ok(gain(hulk, spell('Elf', '{G}', 1, 8), big(20), basicLandDef('G', 24)) > 0.3);
+
+  // X spells that need X of at least 1 count as castable on curve one turn later.
+  const r = simulate(deck(hydra, big(28), basicLandDef('W', 24)), { games: 500, manaSinks: true });
+  assert.equal(r.spells.find((s) => s.name === 'Hydra').curveTurn, 2);
+});

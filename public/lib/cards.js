@@ -665,6 +665,23 @@ function parseSpell(face, card) {
   // Medallions: "Black spells you cast cost {1} less to cast."
   if (/^(?:[a-z]+ )*spells you cast cost \{\d+\} less to cast/m.test(text)) notes.push('Making your other spells cheaper is not modelled');
   if (spell.discardLand) notes.push('Cast only with a land card in hand to discard for it');
+  // Mana sinks, used when the simulation runs with opts.manaSinks:
+  // Offspring {N}: pay N more as it's cast for a 1/1 copy.
+  const offspring = text.match(/^offspring \{(\d+)\}/m);
+  if (offspring) spell.offspring = Number(offspring[1]);
+  // Flashback: cast once more from the graveyard.
+  const flashback = (face.oracle_text || '').match(/^Flashback ((?:\{[^}]+\})+)/m);
+  if (flashback) spell.flashback = parseCost(flashback[1]);
+  // A 0/0 that enters with X +1/+1 counters: cast with X >= 1, and spare mana goes into X.
+  if (spell.cost.x && /enters with x \+1\/\+1 counters/.test(text)) spell.xSink = true;
+  // "search your library for up to two artifact, creature, and/or enchantment cards with
+  // mana value 1 or less ... put them into your hand" (Brightglass Gearhulk).
+  const tutor = text.match(/search your library for up to (a|an|one|two|three|\d+) ([a-z ,/]+?) cards? with mana value (\d+) or less[^.]*put (?:them|it) into your hand/);
+  if (tutor) spell.tutor = { count: num(tutor[1]) || Number(tutor[1]) || 1, maxMv: Number(tutor[3]), types: tutor[2].split(/,? (?:and\/or|or|and) |, /).map((w) => w.trim()).filter(Boolean) };
+  // Mutagen tokens: "{1}, {T}, Sacrifice this token: Put a +1/+1 counter on target creature.
+  // Activate only as a sorcery."
+  const mutagen = text.match(/create (a|an|one|two|three|\d+) mutagen tokens?/);
+  if (mutagen) spell.mutagen = num(mutagen[1]) || Number(mutagen[1]) || 1;
   return spell;
 }
 

@@ -51,7 +51,10 @@ function setup(model, opts) {
   const games = opts.games ?? 4000;
   const defs = model.cards;
   const tracked = [];
-  const curveTurn = (d) => d.spell.curveTurn ?? d.spell.cmc;
+  // With opts.manaSinks, X spells that put X counters are never cast for X = 0, so their
+  // curve turn is one later.
+  const sinks = !!opts.manaSinks;
+  const curveTurn = (d) => (d.spell.curveTurn ?? d.spell.cmc) + (sinks && d.spell.xSink ? 1 : 0);
   defs.forEach((d, i) => { if (d.count > 0 && d.spell && !d.filler && curveTurn(d) >= 1 && curveTurn(d) <= turns) tracked.push(i); });
   let maxCmc = 0;
   for (const d of defs) if (d.count && d.spell && !d.filler) maxCmc = Math.max(maxCmc, d.spell.cmc);
@@ -101,6 +104,11 @@ export function simulateChunks(model, opts, from, to) {
   // must be able to cast a spell by turn 2 with its own lands; 5 cards keep 1-4 lands.
   const keepRule = opts.keepRule ?? null;
   const fc = opts.floodCheck ?? null;
+  // opts.manaSinks (opt-in): spend spare mana the way some cards allow. X spells that put X
+  // +1/+1 counters are cast with X of at least 1 and take all the mana left, Offspring is paid
+  // when the mana is there, flashback spells are cast again from the graveyard, Mutagen tokens
+  // are used for {1}, and "search for cards with mana value N or less" finds those cards.
+  const sinks = !!opts.manaSinks;
   const dorkish = defs.map((d, i) => !landish[i] && rock(d));
   // Colors a land in hand could make, given the other lands in hand.
   const landColors = (L, others) => {
@@ -119,7 +127,7 @@ export function simulateChunks(model, opts, from, to) {
       if (!sp || landish[ci]) continue;
       const c = sp.cost;
       const pips = [...c.pips, ...c.twobrid];
-      if (c.generic + pips.length > avail || pips.length > masks.length) continue;
+      if (c.generic + (sinks && sp.xSink ? 1 : 0) + pips.length > avail || pips.length > masks.length) continue;
       if (pips.length === 0) return true;
       if (pips.length === 1 && masks.some((m) => m & pips[0])) return true;
       if (pips.length === 2 && masks.some((a, i) => (a & pips[0]) && masks.some((b, j) => j !== i && (b & pips[1])))) return true;
@@ -147,7 +155,7 @@ export function simulateChunks(model, opts, from, to) {
   // A source that makes several mana from one tap (Sol Ring, bounce lands) offers its first
   // mana as itself and the rest as `extra`; `tapped` says the first is spent, bit j of
   // `usedExtra` that extra mana j is. Mana made by one tap can pay for several spells that turn.
-  let lib, hand, command, bf, perms, turn, pendingDiscard, expiring, expiringNext;
+  let lib, hand, command, bf, perms, turn, pendingDiscard, expiring, expiringNext, grave;
   // Effects of what's in play: land types every land has (Urborg, Leyline of the
   // Guildpact) and whether lands enter untapped (Spelunking).
   let grant = 0, untapAll = false;
@@ -257,6 +265,7 @@ export function simulateChunks(model, opts, from, to) {
       const cut = Math.min(cost.generic, sp.domain * popcount(types & ANY_COLOR));
       if (cut) cost = { ...cost, generic: cost.generic - cut };
     }
+    if (sinks && sp.xSink) cost = { ...cost, generic: cost.generic + 1 }; // X is at least 1
     return cost;
   }
 
@@ -652,12 +661,25 @@ export function simulateChunks(model, opts, from, to) {
     return cheapest === Infinity ? 0 : cheapest;
   }
 
+  // Taps the sources `pay` picked from `srcs` for mana spent on `kind`.
+  function tapFor(pay, srcs, kind) {
+    pay.forEach((k, n) => {
+      const x = srcs.refs[k];
+      const slot = srcs.slots[k];
+      // City of Brass, Ancient Tomb: life on every tap, whatever the mana pays for.
+      if (x.L.tapLife && !x.tapped && !x.usedExtra) st.life += x.L.tapLife;
+      if (slot) { x.usedExtra |= 1 << (slot - 1); return; }
+      x.tapped = true;
+      if (!x.L.tapLife && n < pay.pipFor.length) st.life += lifeFor(x, pay.pipFor[n], kind);
+    });
+  }
+
   // Casts the best spell we can pay for from hand or the command zone. Positions past the
   // end of the hand are command-zone cards.
   function castOne(onlyDraw) {
     const cache = {};
     const pool = command.length ? hand.concat(command) : hand;
-    let pick = -1, pickScore = -Infinity, pay = null, pickSrc = null;
+    let pick = -1, pickScore = -Infinity, pay = null, pickSrc = null, fromGrave = false;
     for (let i = 0; i < pool.length; i++) {
       const d = defs[pool[i]];
       if (!d.spell || d.spell.noCost) continue;
@@ -666,28 +688,43 @@ export function simulateChunks(model, opts, from, to) {
       if (d.spell.discardLand && !hand.some((ci) => defs[ci].land)) continue; // Mox Diamond
       const kind = d.spell.kind;
       const srcs = cache[kind] || (cache[kind] = sourcesFor(kind, false));
-      const score = onlyDraw ? -d.spell.cmc : d.spell.cmc * 10 + (d.spell.effect ? 0 : 1) + (d.spell.mana ? 5 : 0);
+      let score = onlyDraw ? -d.spell.cmc : d.spell.cmc * 10 + (d.spell.effect ? 0 : 1) + (d.spell.mana ? 5 : 0);
+      // Spells that soak up spare mana wait until everything else that fits is cast: Offspring
+      // first (it costs a set amount), then X spells, which take all the mana that is left.
+      const soak = sinks && !onlyDraw && !!(d.spell.offspring || d.spell.xSink);
+      if (soak) score = d.spell.xSink ? -200 : -100;
       if (score <= pickScore) continue;
-      const cost = effectiveCost(d, i < hand.length ? i : -1);
+      let cost = effectiveCost(d, i < hand.length ? i : -1);
       if (manaNeeded(cost) > srcs.masks.length) continue;
-      const p = payCost(srcs.masks, cost, srcs.penalty);
+      let p = null;
+      if (soak && d.spell.xSink) cost = { ...cost, generic: cost.generic + srcs.masks.length - manaNeeded(cost) };
+      else if (soak && manaNeeded(cost) + d.spell.offspring <= srcs.masks.length) p = payCost(srcs.masks, { ...cost, generic: cost.generic + d.spell.offspring }, srcs.penalty);
+      if (!p) p = payCost(srcs.masks, cost, srcs.penalty);
       if (p) { pick = i; pickScore = score; pay = p; pickSrc = srcs; }
     }
+    // Flashback from the graveyard, after the spells in hand that cost the same.
+    if (sinks && !onlyDraw) {
+      for (let j = 0; j < grave.length; j++) {
+        const d = defs[grave[j]];
+        const cost = d.spell.flashback;
+        const score = manaNeeded(cost) * 10 - 2;
+        if (score <= pickScore) continue;
+        const kind = d.spell.kind;
+        const srcs = cache[kind] || (cache[kind] = sourcesFor(kind, false));
+        if (manaNeeded(cost) > srcs.masks.length) continue;
+        const p = payCost(srcs.masks, cost, srcs.penalty);
+        if (p) { pick = j; pickScore = score; pay = p; pickSrc = srcs; fromGrave = true; }
+      }
+    }
     if (pick < 0) return null;
-    const fromHand = pick < hand.length;
-    const d = defs[pool[pick]];
+    const fromHand = !fromGrave && pick < hand.length;
+    const ci = fromGrave ? grave[pick] : pool[pick];
+    const d = defs[ci];
     const sp = d.spell;
     const sacrifice = sp.extraCost?.sacrifice && canSkipExtra(sp.extraCost, d, fromHand ? pick : -1);
-    pay.forEach((k, n) => {
-      const x = pickSrc.refs[k];
-      const slot = pickSrc.slots[k];
-      // City of Brass, Ancient Tomb: life on every tap, whatever the mana pays for.
-      if (x.L.tapLife && !x.tapped && !x.usedExtra) st.life += x.L.tapLife;
-      if (slot) { x.usedExtra |= 1 << (slot - 1); return; }
-      x.tapped = true;
-      if (!x.L.tapLife && n < pay.pipFor.length) st.life += lifeFor(x, pay.pipFor[n], sp.kind);
-    });
-    if (fromHand) hand.splice(pick, 1);
+    tapFor(pay, pickSrc, sp.kind);
+    if (fromGrave) grave.splice(pick, 1); // exiled after its flashback
+    else if (fromHand) hand.splice(pick, 1);
     else if (fmt.oneCommanderCast) command.length = 0; // Duel Commander: one commander from the command zone per game
     else command.splice(pick - hand.length, 1);
     if (sp.discardLand) {
@@ -716,10 +753,56 @@ export function simulateChunks(model, opts, from, to) {
     if (sp.effect) resolve(sp.effect);
     if (sp.ramp) rampLands(sp.ramp);
     if (sp.landFromHand && landsInHand()) chooseAndPlayLand(sp.landFromHand);
+    if (sinks) {
+      for (let k = 0; k < (sp.mutagen || 0); k++) perms.push({ typeLine: 'artifact — mutagen', isSource: false, isMutagen: true });
+      if (sp.tutor) tutor(sp.tutor);
+      if (sp.flashback && !fromGrave && !sp.isPermanent) grave.push(ci);
+    }
     refreshStatics();
-    // Mana spent: the mana value, or what was paid when that was more (extra costs) or the
-    // spell got cheaper (domain). null means nothing was cast; free spells return 0.
+    // Mana spent: the mana value, or what was paid when that was more (extra costs, Offspring,
+    // X) or the spell got cheaper (domain, flashback). null means nothing was cast; free
+    // spells return 0.
+    if (fromGrave) return pay.length;
     return Math.max(sp.domain ? 0 : sp.cmc - (sp.phyrexian || 0), pay.length);
+  }
+
+  // "Search your library for up to N <types> cards with mana value M or less": the ones that
+  // can use the most mana first (X spells, then Offspring), then mana creatures, different
+  // cards before a second copy.
+  function tutor(t) {
+    const taken = [];
+    for (let n = 0; n < t.count; n++) {
+      let best = -1, bestV = -Infinity;
+      for (let k = 0; k < lib.length; k++) {
+        const ci = lib[k], s = defs[ci].spell;
+        if (!s || landish[ci] || s.cmc > t.maxMv || !isType((s.typeLine || '').toLowerCase(), t.types)) continue;
+        const v = (s.xSink ? 4 : s.offspring ? 3 : s.mana ? 2 : 0) - (taken.includes(ci) ? 5 : 0);
+        if (v > bestV) { bestV = v; best = k; }
+      }
+      if (best < 0) break;
+      taken.push(lib[best]);
+      hand.push(lib[best]);
+      lib.splice(best, 1);
+    }
+    if (taken.length) shuffle(lib, rng);
+  }
+
+  // Mutagen tokens: "{1}, {T}, Sacrifice: put a +1/+1 counter on target creature", used with
+  // whatever mana is left at the end of the turn. Returns the mana spent.
+  const ONE = { generic: 1, pips: [], twobrid: [] };
+  function useMutagens() {
+    let used = 0;
+    for (let i = perms.length - 1; i >= 0; i--) {
+      if (!perms[i].isMutagen) continue;
+      const srcs = sourcesFor('ability', false);
+      const p = srcs.masks.length ? payCost(srcs.masks, ONE, srcs.penalty) : null;
+      if (!p) break;
+      tapFor(p, srcs, 'ability');
+      perms.splice(i, 1);
+      used++;
+    }
+    if (used) { perms = perms.filter((x) => !(x.isTreasure && x.tapped)); refreshStatics(); }
+    return used;
   }
 
   function enterPermanent(sp, def) {
@@ -792,6 +875,7 @@ export function simulateChunks(model, opts, from, to) {
     command = commandList.slice();
     bf = [];
     perms = [];
+    grave = [];
     pendingDiscard = 0;
     expiring = [];
     expiringNext = [];
@@ -864,6 +948,7 @@ export function simulateChunks(model, opts, from, to) {
         spent += used;
         playLands();
       }
+      if (sinks) spent += useMutagens();
       for (const ci of expiring) { const i = hand.lastIndexOf(ci); if (i >= 0) hand.splice(i, 1); }
       expiring.length = 0;
       expiring.push(...expiringNext);
@@ -890,7 +975,7 @@ export function simulateChunks(model, opts, from, to) {
 
 // Adds up the parts returned by simulateChunks (in chunk order) and summarizes them.
 export function finishSimulation(model, opts, parts) {
-  const { turns, games, defs, tracked, wantLands, floodAt } = setup(model, opts);
+  const { turns, games, defs, tracked, curveTurn, wantLands, floodAt } = setup(model, opts);
   const st = emptyStats(turns, defs.length);
   const batches = [];
   for (const p of parts) {
@@ -898,7 +983,7 @@ export function finishSimulation(model, opts, parts) {
     for (const k of [...TURN_STATS, ...CARD_STATS]) for (let i = 0; i < st[k].length; i++) st[k][i] += p.st[k][i];
     batches.push(...p.batches);
   }
-  return summarize({ ...st, games, turns, batches }, defs, tracked, { wantLands, floodAt });
+  return summarize({ ...st, games, turns, batches }, defs, tracked, { wantLands, floodAt }, curveTurn);
 }
 
 // Spells whose cost reduction we can't model would skew the on-curve average.
@@ -929,7 +1014,7 @@ export function moe(p, n) {
   return n > 0 ? 1.96 * Math.sqrt(Math.max(p * (1 - p), 0) / n) : 1;
 }
 
-function summarize(st, defs, tracked, extra) {
+function summarize(st, defs, tracked, extra, curveTurn) {
   const g = st.games;
   const turnRows = [];
   for (let t = 1; t <= st.turns; t++) {
@@ -942,7 +1027,7 @@ function summarize(st, defs, tracked, extra) {
     return {
       name: defs[i].name,
       cmc: defs[i].spell.cmc,
-      curveTurn: defs[i].spell.curveTurn ?? defs[i].spell.cmc,
+      curveTurn: curveTurn(defs[i]),
       copies: defs[i].count,
       commander: !!defs[i].commander,
       isDraw: !!defs[i].spell.effect,
