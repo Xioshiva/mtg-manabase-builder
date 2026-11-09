@@ -95,6 +95,44 @@ export function simulateChunks(model, opts, from, to) {
   // one-use ones (Lotus Petal, Mana Vault) or Mox Diamond, which costs a land.
   const rock = (d) => { const m = d.spell?.mana; return !!m && d.spell.cmc <= 2 && !!(m.mask || m.restricted.some((r) => r.kind === null)) && !m.oneShot && !m.noUntap && !d.spell.discardLand; };
   const keepish = defs.map((d, i) => landish[i] || (!!fmt.keepCountsRocks && rock(d)));
+
+  // opts.keepRule 'strict' (opt-in): a stricter keep rule for fast decks. 7 and 6 cards keep
+  // 2-4 lands (cheap dorks and rocks count as half a land toward the minimum), and the hand
+  // must be able to cast a spell by turn 2 with its own lands; 5 cards keep 1-4 lands.
+  const keepRule = opts.keepRule ?? null;
+  const dorkish = defs.map((d, i) => !landish[i] && rock(d));
+  // Colors a land in hand could make, given the other lands in hand.
+  const landColors = (L, others) => {
+    let m = L.mask & ANY_COLOR;
+    for (const r of L.restricted || []) if (r.kind === null) m |= r.mask & ANY_COLOR;
+    if (L.choices) for (const c of L.choices) m |= c;
+    for (const c of L.cond || []) if (!c.types || others.some((o) => (o.types & c.types) || o.choiceSetsType)) m |= c.mask;
+    return m;
+  };
+  function castsByTurn2(h) {
+    const lands = h.filter((ci) => landish[ci]).map((ci) => defs[ci].land || defs[ci].mdfcLand).filter(Boolean);
+    const masks = lands.map((L, i) => landColors(L, lands.filter((_, j) => j !== i)));
+    const avail = Math.min(2, masks.length);
+    for (const ci of h) {
+      const sp = defs[ci].spell;
+      if (!sp || landish[ci]) continue;
+      const c = sp.cost;
+      const pips = [...c.pips, ...c.twobrid];
+      if (c.generic + pips.length > avail || pips.length > masks.length) continue;
+      if (pips.length === 0) return true;
+      if (pips.length === 1 && masks.some((m) => m & pips[0])) return true;
+      if (pips.length === 2 && masks.some((a, i) => (a & pips[0]) && masks.some((b, j) => j !== i && (b & pips[1])))) return true;
+    }
+    return false;
+  }
+  function strictKeep(h, size) {
+    if (size <= 4) return true;
+    const real = h.filter((ci) => landish[ci]).length;
+    const dorks = h.filter((ci) => dorkish[ci]).length;
+    if (size === 5) return real >= 1 && real <= 4;
+    if (real < 1 || real > 4 || real + 0.5 * dorks < 2) return false;
+    return castsByTurn2(h);
+  }
   const trackedSet = new Uint8Array(defs.length);
   for (const i of tracked) trackedSet[i] = 1;
   const seenTurn = new Int32Array(defs.length);
@@ -712,7 +750,7 @@ export function simulateChunks(model, opts, from, to) {
       const lands = hand.filter((ci) => keepish[ci]).length;
       const realLands = hand.filter((ci) => landish[ci]).length;
       const range = keepRanges[size];
-      if (!range || (lands >= range[0] && realLands <= range[1] && realLands >= 1)) {
+      if (keepRule === 'strict' ? strictKeep(hand, size) : (!range || (lands >= range[0] && realLands <= range[1] && realLands >= 1))) {
         for (let k = 0; k < charged; k++) {
           const landCount = hand.filter((ci) => landish[ci]).length;
           let pick = -1;

@@ -69,3 +69,19 @@ test('margins of error shrink with more games', () => {
   }
   assert.ok(big.spells.every((s) => s.onCurveMoe < 0.03));
 });
+
+test('strict keep rule sends back hands that cannot cast a spell by turn 2', () => {
+  // Every spell is green; half the lands only make blue. The default rule keeps any 2-5 land
+  // hand, the strict rule sends back hands whose lands can't cast a green two-drop.
+  const cards = [spell('Bear', '{1}{G}', 2, 36), basicLandDef('G', 12), basicLandDef('U', 12)];
+  const loose = simulate(deck(...cards), { games: 4000, seed: 3 });
+  const strict = simulate(deck(...cards), { games: 4000, seed: 3, keepRule: 'strict' });
+  assert.ok(strict.mulliganRate > loose.mulliganRate + 0.05, `${strict.mulliganRate} vs ${loose.mulliganRate}`);
+});
+
+test('strict keep rule sends back five-land seven-card hands', () => {
+  const cards = [spell('X', '{1}{R}', 2, 20), basicLandDef('R', 40)];
+  const loose = simulate(deck(...cards), { games: 4000, seed: 3 });
+  const strict = simulate(deck(...cards), { games: 4000, seed: 3, keepRule: 'strict' });
+  assert.ok(strict.mulliganRate > loose.mulliganRate + 0.1, `${strict.mulliganRate} vs ${loose.mulliganRate}`);
+});
