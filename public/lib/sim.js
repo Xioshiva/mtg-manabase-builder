@@ -787,11 +787,24 @@ export function simulateChunks(model, opts, from, to) {
     if (taken.length) shuffle(lib, rng);
   }
 
-  // Mutagen tokens: "{1}, {T}, Sacrifice: put a +1/+1 counter on target creature", used with
-  // whatever mana is left at the end of the turn. Returns the mana spent.
+  // Mana left at the end of the turn: lands with an ability that costs mana and their own tap
+  // (Abandoned Air Temple's {3}{W} pump), then Mutagen tokens ("{1}, {T}, Sacrifice: put a
+  // +1/+1 counter on target creature"). Returns the mana spent.
   const ONE = { generic: 1, pips: [], twobrid: [] };
-  function useMutagens() {
+  function useSinks() {
     let used = 0;
+    for (const x of bf) {
+      if (!x.L.sink || x.tapped || x.etbTapped || x.usedExtra) continue;
+      const all = sourcesFor('ability', false);
+      const keep = all.refs.map((r, k) => k).filter((k) => all.refs[k] !== x);
+      const srcs = { masks: keep.map((k) => all.masks[k]), refs: keep.map((k) => all.refs[k]), penalty: keep.map((k) => all.penalty[k]), slots: keep.map((k) => all.slots[k]) };
+      if (manaNeeded(x.L.sink) > srcs.masks.length) continue;
+      const p = payCost(srcs.masks, x.L.sink, srcs.penalty);
+      if (!p) continue;
+      tapFor(p, srcs, 'ability');
+      x.tapped = true;
+      used += p.length;
+    }
     for (let i = perms.length - 1; i >= 0; i--) {
       if (!perms[i].isMutagen) continue;
       const srcs = sourcesFor('ability', false);
@@ -948,7 +961,7 @@ export function simulateChunks(model, opts, from, to) {
         spent += used;
         playLands();
       }
-      if (sinks) spent += useMutagens();
+      if (sinks) spent += useSinks();
       for (const ci of expiring) { const i = hand.lastIndexOf(ci); if (i >= 0) hand.splice(i, 1); }
       expiring.length = 0;
       expiring.push(...expiringNext);

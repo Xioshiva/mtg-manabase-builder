@@ -5,6 +5,7 @@ import { spell, basicLandDef, standard, card, izzetText, byName } from './helper
 import { recommendLandCount, deckStats, sourcesNeeded } from '../public/lib/recommend.js';
 import { buildModel, runAnalysis } from '../public/lib/analysis.js';
 import { parseDecklist } from '../public/lib/decklist.js';
+import { normalizeCard } from '../public/lib/cards.js';
 
 const deck = (...cards) => ({ cards, format: standard });
 
@@ -112,6 +113,9 @@ test('manaSinks spends spare mana on X counters, Offspring, flashback, Mutagens 
   assert.ok(gain(turtle, big(28), basicLandDef('G', 24)) > 0.3);
   const hulk = spell('Hulk', '{1}{G}', 2, 8, { type: 'Artifact Creature — Construct', text: 'When this creature enters, you may search your library for up to two artifact, creature, and/or enchantment cards with mana value 1 or less, reveal them, put them into your hand, then shuffle.' });
   assert.ok(gain(hulk, spell('Elf', '{G}', 1, 8), big(20), basicLandDef('G', 24)) > 0.3);
+
+  const temple = normalizeCard({ name: 'Temple', type_line: 'Land', oracle_text: '{T}: Add {W}.\n{3}{W}, {T}: Put a +1/+1 counter on each creature you control.', legalities: { standard: 'legal' } }, 12);
+  assert.ok(gain(temple, big(36), basicLandDef('W', 12)) > 0.3);
 
   // X spells that need X of at least 1 count as castable on curve one turn later.
   const r = simulate(deck(hydra, big(28), basicLandDef('W', 24)), { games: 500, manaSinks: true });

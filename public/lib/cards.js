@@ -364,6 +364,10 @@ export function parseLand(face, producedFallback) {
   // Urborg is a Swamp itself, so it taps for {B} though its text has no mana ability.
   // Its own types only change on the battlefield (the grant), so a fetch can't find it as a Swamp.
   if (land.grantTypes) land.mask |= land.grantTypes;
+  // An ability that costs mana and a tap of this land (Abandoned Air Temple: "{3}{W}, {T}: Put a
+  // +1/+1 counter on each creature you control"): somewhere to put spare mana (opts.manaSinks).
+  const sink = text.match(/^((?:\{(?!T\})[^}]+\})+), \{T\}: (?!Add\b)(.*)$/m);
+  if (sink && !/sacrifice|search|\badd\b/i.test(sink[2]) && !/\{X\}/.test(sink[1])) land.sink = parseCost(sink[1]);
   land.utility = lower.split('\n').some((l) => l.trim() && !isManaLine(l.trim()));
   return land;
 }
