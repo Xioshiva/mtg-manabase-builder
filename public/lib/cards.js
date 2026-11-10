@@ -238,6 +238,7 @@ export function parseLand(face, producedFallback) {
     fetch: null,
     extra: [], // more mana from one tap (see parseManaAbilities)
     surveil: 0,
+    surveilIfUntapped: false, // only surveils when it enters untapped (Q Continuum)
     scry: 0,
     bounce: false, // returns a land to hand as it enters (Simic Growth Chamber)
     sacrifice: 0, // lands sacrificed as it enters (Lotus Field)
@@ -353,6 +354,10 @@ export function parseLand(face, producedFallback) {
   if (surveil) land.surveil = Number(surveil[1]);
   const scry = lower.match(/when [^.]*enters[^.]*, scry (\d+)/);
   if (scry) land.scry = Number(scry[1]);
+  // Star Trek lands (Q Continuum): "When this land enters untapped, choose one — … • Surveil 1."
+  // The simulator always takes the surveil mode, which only happens when it enters untapped.
+  const modal = /when [^.\n]*enters untapped, choose one/.test(lower) && lower.match(/^• surveil (\d+)/m);
+  if (modal && !land.surveil) { land.surveil = Number(modal[1]); land.surveilIfUntapped = true; }
   if (/when [^.]*enters[^.]*, return a land you control to its owner's hand/.test(lower)) land.bounce = true;
   const sac = lower.match(/when [^.]*enters[^.]*, sacrifice (a|an|one|two|three) (untapped )?lands?/);
   if (sac) { land.sacrifice = num(sac[1]); land.sacrificeUntapped = !!sac[2]; }

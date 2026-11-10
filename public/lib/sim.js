@@ -478,7 +478,7 @@ export function simulateChunks(model, opts, from, to) {
 
   function landEnters(src) {
     const L = src.L;
-    if (L.surveil) select(L.surveil);
+    if (L.surveil && !(L.surveilIfUntapped && src.etbTapped)) select(L.surveil);
     if (L.scry) select(L.scry);
     if (L.etbMana) addFleetingMana(L.etbMana);
     // Lotus Field: sacrifice lands, already-used ones first, then the ones making the fewest
@@ -579,7 +579,7 @@ export function simulateChunks(model, opts, from, to) {
             // When a tapped land costs nothing this turn, play one that looks at the top of the
             // library, then one that always enters tapped, and keep a shockland or a fetch that
             // can make untapped mana for a later turn.
-            score += 3 * ((enters.surveil || 0) + (enters.scry || 0));
+            score += 3 * ((enters.surveilIfUntapped && tapped ? 0 : enters.surveil || 0) + (enters.scry || 0));
             if (tapped && enters.etb === 'tapped' && !enters.bounce) score += 2;
             if (L.fetch && tapped && !L.fetch.tapped) score -= 3;
             if (target) score += 2 * need; // which land to fetch: the colors we have least of

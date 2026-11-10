@@ -68,6 +68,26 @@ test('a surveil land goes down on a turn its mana is not needed; a shockland is 
   assert.ok(wildsCurve > 0.85, `${wildsCurve}`);
 });
 
+test('a land that surveils only when it enters untapped (Q Continuum) surveils from the third land on', () => {
+  const slow = 'This land enters tapped unless you control two or more other lands.';
+  const q = (n) => land('Q Continuum', `${slow}\nWhen this land enters untapped, choose one —\n• Target creature gets +1/+1 and gains vigilance until end of turn.\n• Surveil 1.\n{T}: Add {G}.`, 'Land', n);
+  const L = q(1).land;
+  assert.equal(L.etb, 'slow');
+  assert.equal(L.surveil, 1);
+  assert.equal(L.surveilIfUntapped, true);
+  const always = (n) => land('Always', `${slow}\nWhen this land enters, surveil 1.\n{T}: Add {G}.`, 'Land', n);
+  const never = (n) => land('Never', `${slow}\n{T}: Add {G}.`, 'Land', n);
+  assert.equal(always(1).land.surveilIfUntapped, false);
+  const fives = spell('Five', '{4}{G}', 5, 36);
+  const [rq, ra, rn] = [q, always, never].map((f) => sim([f(24), fives], { games: 4000 }));
+  // The first two lands enter tapped, so nothing changes until the third land surveils
+  // before the turn-4 draw.
+  for (const t of [0, 1, 2]) assert.equal(rq.turns[t].hitLandDrop, rn.turns[t].hitLandDrop);
+  assert.notEqual(rq.turns[4].avgLands, rn.turns[4].avgLands);
+  // A land that always surveils already changes the turn-2 and turn-3 draws.
+  assert.ok([1, 2].some((t) => ra.turns[t].hitLandDrop !== rn.turns[t].hitLandDrop));
+});
+
 test('on a turn its mana is not needed, a shockland goes down tapped before a land that would enter untapped later', () => {
   const spells = [spell('TwoU', '{1}{U}', 2, 18), spell('ThreeW', '{2}{W}', 3, 18)];
   const other = (name, text, type = 'Land') => land(name, `${text}\n{T}: Add {W} or {U}.`, type, 12);
